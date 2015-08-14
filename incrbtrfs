@@ -74,6 +74,7 @@ def mark_last(snapshots):
         remove(last_dir)
     symlink(snap.loc,last_dir)
     snap.keep = True
+    return snap
 
 def get_base_dir(subvolume):
     base = join(subvolume,".incrbtrfs","timestamp")
@@ -117,7 +118,7 @@ def clean_up(cfg):
     base = join(cfg["directory"],".incrbtrfs","timestamp")
     snapshots = [Snapshot(join(base,name)) for name in listdir(base)]
     snapshots = sorted(snapshots,key=lambda s: s.timestamp,reverse=True)
-    mark_last(snapshots)
+    last = mark_last(snapshots)
     if cfg["hourly_limit"]:
         mark_snapshots(cfg,snapshots,"hourly")
     if cfg["daily_limit"]:
@@ -136,10 +137,14 @@ def clean_up(cfg):
             continue
         command = ("/sbin/btrfs","subvolume","delete",snapshot.loc)
         check_call(command)
+    return last
 
-def send_snapshot(snap,destination):
+def send_snapshot(snap,destination,parent=None):
     rcv_base = get_base_dir(destination)
-    snd_cmd = ("/sbin/btrfs","send",snap.loc)
+    if parent:
+        snd_cmd = ("/sbin/btrfs","send","-p",parent,snap.loc)
+    else:
+        snd_cmd = ("/sbin/btrfs","send",snap.loc)
     rcv_cmd = ("/sbin/btrfs","receive",rcv_base)
     snd_p = Popen(snd_cmd,stdout=PIPE)
     rcv_p = Popen(rcv_cmd,stdin=snd_p.stdout)
@@ -159,11 +164,11 @@ if __name__ == "__main__":
         for cfg in read_config(args.config):
             try:
                 snap = snapshot(cfg["directory"])
-                if cfg["send"]:
-                    send_snapshot(snap,cfg["send"])
             except CalledProcessError:
                 continue
-            clean_up(cfg)
+            last = clean_up(cfg)
+            if cfg["send"]:
+                send_snapshot(snap,cfg["send"],parent=last)
     else:
         try:
             mark_last([snapshot(args.subvolume)])
