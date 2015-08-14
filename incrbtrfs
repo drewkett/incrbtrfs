@@ -14,15 +14,16 @@ from subprocess import check_call,PIPE,Popen,CalledProcessError
 from os.path import join,exists,basename,lexists,realpath,dirname
 from os import makedirs, listdir, symlink, remove, rename
 
-timestamp_str = "%Y%m%d_%H%M%S_%f"
+timestamp_strp = "%Y%m%d_%H%M%S_%f"
 
-parse_timestamp = lambda loc: datetime.strptime(basename(realpath(loc)),timestamp_str)
+parse_timestamp = lambda loc: datetime.strptime(basename(realpath(loc)),timestamp_strp)
 
 class Snapshot(object):
-    def __init__(self,subvolume,timestamp):
+    def __init__(self,subvolume,timestamp_str):
         self.subvolume = subvolume
         self.loc = join(self.subvolume,".incrbtrfs","timestamp",timestamp)
-        self.timestamp = datetime.strptime(timestamp,timestamp_str)
+        self.timestamp_str = timestamp_str
+        self.timestamp = datetime.strptime(timestamp_str,timestamp_strp)
         self.keep = False
 
     def __repr__(self):
@@ -157,7 +158,7 @@ def send_snapshot(snap,destination,parent=None):
     snd_p.stdout.close()
     rcv_p.communicate()
     
-timestamp = now.strftime(timestamp_str)
+timestamp = now.strftime(timestamp_strp)
 
 if __name__ == "__main__":
     parser = ArgumentParser()
