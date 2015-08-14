@@ -116,6 +116,7 @@ def read_config(filename):
 
 def clean_up(cfg):
     subvolume = cfg["directory"]
+    base = get_base_dir(subvolume)
     snapshots = [Snapshot(subvolume,timestamp) for timestamp in listdir(base)]
     snapshots = sorted(snapshots,key=lambda s: s.timestamp,reverse=True)
     last = mark_last(snapshots)
