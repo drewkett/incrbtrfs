@@ -94,7 +94,7 @@ def read_config(filename):
     subvolumes = []
     defaults = {
         "directory" : None,
-        "send" : None,
+        "send_to" : None,
         "hourly_limit" : 0,
         "daily_limit" : 0,
         "weekly_limit" : 0,
@@ -105,7 +105,7 @@ def read_config(filename):
 
     for section in config.sections():
         cfg = {}
-        for k in ('directory','send'):
+        for k in ('directory','send_to'):
             cfg[k] = config.get(section,k)
         for k in ('hourly_limit','daily_limit','weekly_limit','monthly_limit'):
             cfg[k] = config.getint(section,k)
@@ -174,8 +174,8 @@ if __name__ == "__main__":
             except CalledProcessError:
                 continue
             last = clean_up(cfg)
-            if cfg["send"]:
-                send_snapshot(snap,cfg["send"],parent=last)
+            if cfg["send_to"]:
+                send_snapshot(snap,cfg["send_to"],parent=last)
     else:
         try:
             mark_last([snapshot(args.subvolume)])
