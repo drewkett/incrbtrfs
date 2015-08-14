@@ -170,7 +170,7 @@ def get_parent(cfg):
     snd_timestamps = listdir(snd_base)
     rcv_base = get_base_dir(rcv_subvolume)
     if not exists(rcv_base):
-        return None
+        os.makedirs(rcv_base)
     rcv_timestamps = listdir(rcv_base)
     timestamps = snd_timestamps + rcv_timestamps
     timestamps = sorted(timestamps,reverse=True)
