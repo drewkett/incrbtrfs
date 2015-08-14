@@ -145,7 +145,7 @@ def send_snapshot(snap,destination,parent=None):
     rcv_base = get_base_dir(destination)
     parent_exists = False
     if parent:
-        rcv_parent_loc = join(destination,".incrbtrfs","timestamp",parent.timestamp)
+        rcv_parent_loc = join(destination,".incrbtrfs","timestamp",parent.timestamp_str)
         if exists(rcv_parent_loc):
             parent_exists = True
     if parent_exists:
