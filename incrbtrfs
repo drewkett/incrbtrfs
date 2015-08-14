@@ -160,6 +160,16 @@ def send_snapshot(snap,destination,parent_timestamp=None):
     rcv_p = Popen(rcv_cmd,stdin=snd_p.stdout)
     snd_p.stdout.close()
     rcv_p.communicate()
+    if snd_p.returncode != 0 or rcp_p.returncode != 0:
+        stderr.write("Send/Receive failed")
+        rcv_subvolume = join(rcv_base,snap.timestemp_str)
+        if exists(rcv_subvolume):
+            rm_cmd = ("/sbin/btrfs","subvolume","delete",rcv_subvolume)
+            try:
+                check_call(rm_cmd)
+            except CalledProcessError:
+                stderr.write("Couldn't delete failed subvolume")
+
     
 timestamp = now.strftime(timestamp_strp)
 
