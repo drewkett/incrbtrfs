@@ -9,6 +9,8 @@ if sys.version_info.major == 2:
     from ConfigParser import ConfigParser
 else:
     from configparser import ConfigParser
+
+from sys import stderr
 from argparse import ArgumentParser
 from subprocess import check_call,PIPE,Popen,CalledProcessError
 from os.path import join,exists,basename,lexists,realpath,dirname
@@ -66,7 +68,6 @@ def mark_snapshots(cfg,snapshots,snaptype):
             last_index = list(reversed(snapshots_i)).index(i)
             s = list(reversed(snapshots))[last_index]
             s.keep = True
-            #print("%2d %s"%(i,s.loc))
             symlink(s.loc,index_dir)
 
 def mark_last(snapshots):
@@ -135,7 +136,7 @@ def clean_up(cfg,parent_timestamp=None):
                 s.keep = True
 
     if not any(snapshot.keep for snapshot in snapshots):
-        print("None marked")
+        stderr.write("None marked\n")
         return
 
     for snapshot in snapshots:
@@ -149,10 +150,10 @@ def send_snapshot(snap,destination,parent_timestamp=None):
     rcv_base = get_base_dir(destination)
     if parent_timestamp:
         parent_loc = join(snap.subvolume,".incrbtrfs","timestamp",parent_timestamp)
-        print("Performing Incremental Send/Receive")
+        stderr.write("Performing Incremental Send/Receive\n")
         snd_cmd = ("/sbin/btrfs","send","-p",parent_loc,snap.loc)
     else:
-        print("Performing Full Send/Receive")
+        stderr.write("Performing Full Send/Receive\n")
         snd_cmd = ("/sbin/btrfs","send",snap.loc)
     rcv_cmd = ("/sbin/btrfs","receive",rcv_base)
     snd_p = Popen(snd_cmd,stdout=PIPE)
