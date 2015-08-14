@@ -115,10 +115,10 @@ def read_config(filename):
             continue
         yield(cfg)
 
-def clean_up(cfg):
+def clean_up(cfg,parent_timestamp=None):
     subvolume = cfg["directory"]
     base = get_base_dir(subvolume)
-    snapshots = [Snapshot(subvolume,timestamp) for timestamp in listdir(base)]
+    snapshots = [Snapshot(subvolume,t) for t in listdir(base)]
     snapshots = sorted(snapshots,key=lambda s: s.timestamp,reverse=True)
     last = mark_last(snapshots)
     if cfg["hourly_limit"]:
@@ -129,6 +129,10 @@ def clean_up(cfg):
         mark_snapshots(cfg,snapshots,"weekly")
     if cfg["monthly_limit"]:
         mark_snapshots(cfg,snapshots,"monthly")
+    if parent_timestamp:
+        for s in snapshots:
+            if s.timestamp_str == parent_timestamp:
+                s.keep = True
 
     if not any(snapshot.keep for snapshot in snapshots):
         print("None marked")
@@ -141,16 +145,14 @@ def clean_up(cfg):
         check_call(command)
     return last
 
-def send_snapshot(snap,destination,parent=None):
+def send_snapshot(snap,destination,parent_timestamp=None):
     rcv_base = get_base_dir(destination)
-    parent_exists = False
-    if parent:
-        rcv_parent_loc = join(destination,".incrbtrfs","timestamp",parent.timestamp_str)
-        if exists(rcv_parent_loc):
-            parent_exists = True
-    if parent_exists:
-        snd_cmd = ("/sbin/btrfs","send","-p",parent.loc,snap.loc)
+    if parent_timestamp:
+        parent_loc = join(snap.subvolume,".incrbtrfs","timestamp",parent_timestamp)
+        print("Performing Incremental Send/Receive")
+        snd_cmd = ("/sbin/btrfs","send","-p",parent_loc,snap.loc)
     else:
+        print("Performing Full Send/Receive")
         snd_cmd = ("/sbin/btrfs","send",snap.loc)
     rcv_cmd = ("/sbin/btrfs","receive",rcv_base)
     snd_p = Popen(snd_cmd,stdout=PIPE)
@@ -159,6 +161,23 @@ def send_snapshot(snap,destination,parent=None):
     rcv_p.communicate()
     
 timestamp = now.strftime(timestamp_strp)
+
+def get_parent(cfg):
+    snd_subvolume = cfg["directory"]
+    rcv_subvolume = cfg["send_to"]
+    subvolume = cfg["directory"]
+    snd_base = get_base_dir(snd_subvolume)
+    snd_timestamps = listdir(snd_base)
+    rcv_base = get_base_dir(rcv_subvolume)
+    rcv_timestamps = listdir(rcv_base)
+    timestamps = snd_timestamps + rcv_timestamps
+    timestamps = sorted(timestamps,reverse=True)
+    parent = None
+    for t1,t2 in zip(timestamps[:-1],timestamps[1:]):
+        if t1 == t2:
+            parent = t1
+            break
+    return parent
 
 if __name__ == "__main__":
     parser = ArgumentParser()
@@ -173,9 +192,10 @@ if __name__ == "__main__":
                 snap = snapshot(cfg["directory"])
             except CalledProcessError:
                 continue
-            last = clean_up(cfg)
             if cfg["send_to"]:
-                send_snapshot(snap,cfg["send_to"],parent=last)
+                parent_timestamp = get_parent(cfg)
+                send_snapshot(snap,cfg["send_to"],parent_timestamp=parent_timestamp)
+            last = clean_up(cfg,parent_timestamp=parent_timestamp)
     else:
         try:
             mark_last([snapshot(args.subvolume)])
