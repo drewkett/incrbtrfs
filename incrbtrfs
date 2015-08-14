@@ -88,6 +88,7 @@ def read_config(filename):
     subvolumes = []
     defaults = {
         "directory" : None,
+        "send" : None,
         "hourly_limit" : 0,
         "daily_limit" : 0,
         "weekly_limit" : 0,
@@ -98,7 +99,7 @@ def read_config(filename):
 
     for section in config.sections():
         cfg = {}
-        for k in ('directory',):
+        for k in ('directory','send'):
             cfg[k] = config.get(section,k)
         for k in ('hourly_limit','daily_limit','weekly_limit','monthly_limit'):
             cfg[k] = config.getint(section,k)
@@ -132,6 +133,15 @@ def clean_up(cfg):
         command = ("/sbin/btrfs","subvolume","delete",snapshot.loc)
         check_call(command)
 
+def send_snapshot(snap,destination):
+    dst = get_timestamp_dir(destination)
+    snd_cmd = ("/sbin/btrfs","send",snap.loc)
+    rcv_cmd = ("/sbin/btrfs","receive",dst)
+    snd_p = Popen(snd_cmd,stdout=PIPE)
+    rcv_p = Popen(rcv_cmd,stdin=snd_p.stdout)
+    snd_p.stdout.close()
+    rcv_p.communicate()
+    
 timestamp = now.strftime(timestamp_str)
 
 if __name__ == "__main__":
@@ -144,7 +154,9 @@ if __name__ == "__main__":
     if args.config:
         for cfg in read_config(args.config):
             try:
-                snapshot(cfg["directory"])
+                snap = snapshot(cfg["directory"])
+                if cfg["send"]:
+                    send_snapshot(snap,cfg["send"])
             except CalledProcessError:
                 continue
             clean_up(cfg)
