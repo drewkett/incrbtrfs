@@ -4,7 +4,11 @@ from datetime import datetime,timedelta
 now = datetime.now()
 monday = datetime(year=1970,month=1,day=5)
 
-from configparser import ConfigParser
+import sys
+if sys.version[0] == 2:
+    from ConfigParser import ConfigParser
+else:
+    from configparser import ConfigParser
 from argparse import ArgumentParser
 from subprocess import check_call,PIPE,Popen,CalledProcessError
 from os.path import join,exists,basename,lexists,realpath,dirname
