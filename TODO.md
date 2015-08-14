@@ -1,0 +1,5 @@
+- Add ssh support
+- Run clean up on send_to paths
+- Delete failed send/receives. Check Error code
+- General cleanup/documentation
+- Add README.md
