@@ -21,7 +21,7 @@ parse_timestamp = lambda loc: datetime.strptime(basename(realpath(loc)),timestam
 class Snapshot(object):
     def __init__(self,subvolume,timestamp_str):
         self.subvolume = subvolume
-        self.loc = join(self.subvolume,".incrbtrfs","timestamp",timestamp)
+        self.loc = join(self.subvolume,".incrbtrfs","timestamp",timestamp_str)
         self.timestamp_str = timestamp_str
         self.timestamp = datetime.strptime(timestamp_str,timestamp_strp)
         self.keep = False
