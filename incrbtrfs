@@ -10,6 +10,7 @@ if sys.version_info.major == 2:
 else:
     from configparser import ConfigParser
 
+import socket
 from sys import stderr
 from argparse import ArgumentParser
 from subprocess import check_call,PIPE,Popen,CalledProcessError
@@ -134,6 +135,7 @@ def clean_up(cfg,parent_timestamp=None):
         for s in snapshots:
             if s.timestamp_str == parent_timestamp:
                 s.keep = True
+                break
 
     if not any(snapshot.keep for snapshot in snapshots):
         stderr.write("None marked\n")
@@ -199,6 +201,12 @@ if __name__ == "__main__":
     group.add_argument("-s","--subvolume")
     args = parser.parse_args()
 
+    lock = socket.socket(socket.AF_UNIX,socket.SOCK_DGRAM)
+    try:
+        lock.bind('\0incrbtrfs')
+    except:
+        stderr.write("Another incrbtrfs process is running\n")
+        exit(1)
     if args.config:
         for cfg in read_config(args.config):
             try:
