@@ -3,3 +3,4 @@
 - Delete failed send/receives. Check Error code
 - General cleanup/documentation
 - Add README.md
+- Add dry run option
