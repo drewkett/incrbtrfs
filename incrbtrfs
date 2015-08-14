@@ -1,0 +1,151 @@
+#!/usr/bin/env python
+
+from datetime import datetime,timedelta
+now = datetime.now()
+monday = datetime(year=1970,month=1,day=5)
+
+from configparser import ConfigParser
+from argparse import ArgumentParser
+from subprocess import check_call,PIPE,Popen,CalledProcessError
+from os.path import join,exists,basename,lexists,realpath,dirname
+from os import makedirs, listdir, symlink, remove, rename
+
+timestamp_str = "%Y%m%d_%H%M%S_%f"
+
+parse_timestamp = lambda loc: datetime.strptime(basename(realpath(loc)),timestamp_str)
+
+class Snapshot(object):
+    def __init__(self,loc):
+        self.loc = loc
+        self.timestamp = datetime.strptime(basename(loc),timestamp_str)
+        self.keep = False
+
+    def __repr__(self):
+        ret = self.loc
+        if self.keep:
+            ret += " KEEP"
+        return ret
+
+def round_time(timestamp):
+    timestamp = timestamp.replace(minute=0,second=0,microsecond=0)
+    return timestamp
+
+def calc_index(snapshot_dir,snaptype):
+    timestamp = round_time(parse_timestamp(snapshot_dir))
+    now_rounded = round_time(now)
+    if snaptype == "hourly":
+        hr_now = (now-monday).seconds//3600 + (now-monday).days*24
+        hr_timestamp = (timestamp-monday).seconds//3600 + (timestamp-monday).days*24
+        return hr_now - hr_timestamp
+    elif snaptype == "daily":
+        return ((now-monday).days - (timestamp-monday).days)
+    elif snaptype == "weekly":
+        return (now-monday).days//7 - (timestamp-monday).days//7
+    elif snaptype == "monthly":
+        return now.month - timestamp.month + 12*(now.year - timestamp.year)
+
+def mark_snapshots(cfg,snapshots,snaptype):
+    limit = cfg[snaptype+"_limit"]
+    link_dir = join(cfg['directory'],'.btrfs-backup',snaptype)
+    if not exists(link_dir):
+        makedirs(link_dir)
+    
+    snapshots_base = [basename(snapshot.loc) for snapshot in snapshots]
+    snapshots_i = [calc_index(snapshot.loc,snaptype) for snapshot in snapshots]
+    for i in range(limit,-1,-1):
+        index_dir = join(link_dir,str(i))
+        if lexists(index_dir):
+            remove(index_dir)
+        if i in snapshots_i:
+            last_index = list(reversed(snapshots_i)).index(i)
+            s = list(reversed(snapshots))[last_index]
+            s.keep = True
+            #print("%2d %s"%(i,s.loc))
+            symlink(s.loc,index_dir)
+
+def mark_last(snapshots):
+    snap = max(snapshots, key=lambda s: s.timestamp)
+    last_dir = join(snap.loc,"..","..","last")
+    if lexists(last_dir):
+        remove(last_dir)
+    symlink(snap.loc,last_dir)
+    snap.keep = True
+
+def snapshot(subvolume):
+    base = join(subvolume,".btrfs-backup","timestamp")
+    if not exists(base):
+        makedirs(base)
+    location = join(base,timestamp)
+    command = ('/sbin/btrfs','subvolume','snapshot','-r',subvolume,location)
+    check_call(command)
+    return Snapshot(location)
+
+def read_config(filename):
+    subvolumes = []
+    defaults = {
+        "directory" : None,
+        "hourly_limit" : 0,
+        "daily_limit" : 0,
+        "weekly_limit" : 0,
+        "monthly_limit" : 0
+        }
+    config = ConfigParser(defaults)
+    config.read(args.config)
+
+    for section in config.sections():
+        cfg = {}
+        for k in ('directory',):
+            cfg[k] = config.get(section,k)
+        for k in ('hourly_limit','daily_limit','weekly_limit','monthly_limit'):
+            cfg[k] = config.getint(section,k)
+        if not cfg["directory"]:
+            continue
+        if not exists(cfg["directory"]):
+            continue
+        yield(cfg)
+
+def clean_up(cfg):
+    base = join(cfg["directory"],".btrfs-backup","timestamp")
+    snapshots = [Snapshot(join(base,name)) for name in listdir(base)]
+    snapshots = sorted(snapshots,key=lambda s: s.timestamp,reverse=True)
+    mark_last(snapshots)
+    if cfg["hourly_limit"]:
+        mark_snapshots(cfg,snapshots,"hourly")
+    if cfg["daily_limit"]:
+        mark_snapshots(cfg,snapshots,"daily")
+    if cfg["weekly_limit"]:
+        mark_snapshots(cfg,snapshots,"weekly")
+    if cfg["monthly_limit"]:
+        mark_snapshots(cfg,snapshots,"monthly")
+
+    if not any(snapshot.keep for snapshot in snapshots):
+        print("None marked")
+        return
+
+    for snapshot in snapshots:
+        if snapshot.keep:
+            continue
+        command = ("/sbin/btrfs","subvolume","delete",snapshot.loc)
+        check_call(command)
+
+timestamp = now.strftime(timestamp_str)
+
+if __name__ == "__main__":
+    parser = ArgumentParser()
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("-c","--config")
+    group.add_argument("-s","--subvolume")
+    args = parser.parse_args()
+
+    if args.config:
+        for cfg in read_config(args.config):
+            try:
+                snapshot(cfg["directory"])
+            except CalledProcessError:
+                continue
+            clean_up(cfg)
+    else:
+        try:
+            mark_last(snapshot(args.subvolume))
+        except CalledProcessError:
+            pass
