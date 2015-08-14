@@ -50,7 +50,7 @@ def calc_index(snapshot_dir,snaptype):
 
 def mark_snapshots(cfg,snapshots,snaptype):
     limit = cfg[snaptype+"_limit"]
-    link_dir = join(cfg['directory'],'.btrfs-backup',snaptype)
+    link_dir = join(cfg['directory'],"./incrbtrfs",snaptype)
     if not exists(link_dir):
         makedirs(link_dir)
     
@@ -76,7 +76,7 @@ def mark_last(snapshots):
     snap.keep = True
 
 def snapshot(subvolume):
-    base = join(subvolume,".btrfs-backup","timestamp")
+    base = join(subvolume,".incrbtrfs","timestamp")
     if not exists(base):
         makedirs(base)
     location = join(base,timestamp)
@@ -109,7 +109,7 @@ def read_config(filename):
         yield(cfg)
 
 def clean_up(cfg):
-    base = join(cfg["directory"],".btrfs-backup","timestamp")
+    base = join(cfg["directory"],".incrbtrfs","timestamp")
     snapshots = [Snapshot(join(base,name)) for name in listdir(base)]
     snapshots = sorted(snapshots,key=lambda s: s.timestamp,reverse=True)
     mark_last(snapshots)
