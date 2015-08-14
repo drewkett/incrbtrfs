@@ -75,14 +75,11 @@ def mark_last(snapshots):
     symlink(snap.loc,last_dir)
     snap.keep = True
 
-def get_timestamp_dir(subvolume):
+def snapshot(subvolume):
     base = join(subvolume,".incrbtrfs","timestamp")
     if not exists(base):
         makedirs(base)
-    return join(base,timestamp)
-
-def snapshot(subvolume):
-    location = get_timestamp_dir(subvolume)
+    location = join(base,timestamp)
     command = ('/sbin/btrfs','subvolume','snapshot','-r',subvolume,location)
     check_call(command)
     return Snapshot(location)
