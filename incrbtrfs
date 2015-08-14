@@ -19,9 +19,10 @@ timestamp_str = "%Y%m%d_%H%M%S_%f"
 parse_timestamp = lambda loc: datetime.strptime(basename(realpath(loc)),timestamp_str)
 
 class Snapshot(object):
-    def __init__(self,loc):
-        self.loc = loc
-        self.timestamp = datetime.strptime(basename(loc),timestamp_str)
+    def __init__(self,subvolume,timestamp):
+        self.subvolume = subvolume
+        self.loc = join(self.subvolume,".incrbtrfs","timestamp",timestamp)
+        self.timestamp = datetime.strptime(timestamp,timestamp_str)
         self.keep = False
 
     def __repr__(self):
@@ -77,17 +78,16 @@ def mark_last(snapshots):
     return snap
 
 def get_base_dir(subvolume):
-    base = join(subvolume,".incrbtrfs","timestamp")
-    if not exists(base):
-        makedirs(base)
-    return base
+    return join(subvolume,".incrbtrfs","timestamp")
 
 def snapshot(subvolume):
     base = get_base_dir(subvolume)
+    if not exists(base):
+        makedirs(base)
     location = join(base,timestamp)
     command = ('/sbin/btrfs','subvolume','snapshot','-r',subvolume,location)
     check_call(command)
-    return Snapshot(location)
+    return Snapshot(subvolume,timestamp)
 
 def read_config(filename):
     subvolumes = []
@@ -115,8 +115,8 @@ def read_config(filename):
         yield(cfg)
 
 def clean_up(cfg):
-    base = join(cfg["directory"],".incrbtrfs","timestamp")
-    snapshots = [Snapshot(join(base,name)) for name in listdir(base)]
+    subvolume = cfg["directory"]
+    snapshots = [Snapshot(subvolume,timestamp) for timestamp in listdir(base)]
     snapshots = sorted(snapshots,key=lambda s: s.timestamp,reverse=True)
     last = mark_last(snapshots)
     if cfg["hourly_limit"]:
@@ -141,7 +141,12 @@ def clean_up(cfg):
 
 def send_snapshot(snap,destination,parent=None):
     rcv_base = get_base_dir(destination)
-    if parent and exists(parent.loc):
+    parent_exists = False
+    if parent:
+        rcv_parent_loc = join(destination,".incrbtrfs","timestamp",parent.timestamp)
+        if exists(rcv_parent_loc):
+            parent_exists = True
+    if parent_exists:
         snd_cmd = ("/sbin/btrfs","send","-p",parent.loc,snap.loc)
     else:
         snd_cmd = ("/sbin/btrfs","send",snap.loc)
