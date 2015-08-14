@@ -89,7 +89,16 @@ def snapshot(subvolume):
         makedirs(base)
     location = join(base,timestamp)
     command = ('/sbin/btrfs','subvolume','snapshot','-r',subvolume,location)
-    check_call(command)
+    try:
+        check_call(command)
+    except CalledProcessError:
+        if exists(location):
+            rm_cmd = ("/sbin/btrfs","subvolume","delete",location)
+            try:
+                check_call(rm_cmd)
+            except CalledProcessError:
+                stderr.write("Couldn't delete failed subvolume")
+        exit(1)
     return Snapshot(subvolume,timestamp)
 
 def read_config(filename):
@@ -150,27 +159,37 @@ def clean_up(cfg,parent_timestamp=None):
 
 def send_snapshot(snap,destination,parent_timestamp=None):
     rcv_base = get_base_dir(destination)
+    rcv_subvolume = join(rcv_base,snap.timestamp_str)
     if parent_timestamp:
         parent_loc = join(snap.subvolume,".incrbtrfs","timestamp",parent_timestamp)
         stderr.write("Performing Incremental Send/Receive\n")
+        stderr.write("Sending = %s\n"%snap.loc)
+        stderr.write("Parent = %s\n"%parent_loc)
         snd_cmd = ("/sbin/btrfs","send","-p",parent_loc,snap.loc)
     else:
         stderr.write("Performing Full Send/Receive\n")
+        stderr.write("Sending = %s\n"%snap.loc)
         snd_cmd = ("/sbin/btrfs","send",snap.loc)
     rcv_cmd = ("/sbin/btrfs","receive",rcv_base)
+    stderr.write("Receiving = %s\n"%rcv_subvolume)
     snd_p = Popen(snd_cmd,stdout=PIPE)
     rcv_p = Popen(rcv_cmd,stdin=snd_p.stdout)
     snd_p.stdout.close()
     rcv_p.communicate()
-    if snd_p.returncode != 0 or rcp_p.returncode != 0:
-        stderr.write("Send/Receive failed")
-        rcv_subvolume = join(rcv_base,snap.timestemp_str)
+    if snd_p.returncode != 0 or rcv_p.returncode != 0:
+        if snd_p.returncode != 0 and rcv_p.returncode != 0:
+            stderr.write("Send/Receive failed")
+        elif snd_p.returncode != 0:
+            stderr.write("Send failed")
+        else:
+            stderr.write("Receive failed")
         if exists(rcv_subvolume):
             rm_cmd = ("/sbin/btrfs","subvolume","delete",rcv_subvolume)
             try:
                 check_call(rm_cmd)
             except CalledProcessError:
                 stderr.write("Couldn't delete failed subvolume")
+        exit(1)
 
     
 timestamp = now.strftime(timestamp_strp)
