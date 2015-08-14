@@ -142,7 +142,7 @@ def clean_up(cfg):
 def send_snapshot(snap,destination,parent=None):
     rcv_base = get_base_dir(destination)
     if parent:
-        snd_cmd = ("/sbin/btrfs","send","-p",parent,snap.loc)
+        snd_cmd = ("/sbin/btrfs","send","-p",parent.loc,snap.loc)
     else:
         snd_cmd = ("/sbin/btrfs","send",snap.loc)
     rcv_cmd = ("/sbin/btrfs","receive",rcv_base)
