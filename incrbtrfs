@@ -11,6 +11,7 @@ else:
     from configparser import ConfigParser
 
 import socket
+import signal
 from sys import stderr
 from argparse import ArgumentParser
 from subprocess import check_call,PIPE,Popen,CalledProcessError
@@ -20,6 +21,8 @@ from os import makedirs, listdir, symlink, remove, rename
 timestamp_strp = "%Y%m%d_%H%M%S_%f"
 
 parse_timestamp = lambda loc: datetime.strptime(basename(realpath(loc)),timestamp_strp)
+
+signal.signal(signal.SIGINT,signal.SIG_IGN)
 
 class Snapshot(object):
     def __init__(self,subvolume,timestamp_str):
@@ -178,11 +181,11 @@ def send_snapshot(snap,destination,parent_timestamp=None):
     rcv_p.communicate()
     if snd_p.returncode != 0 or rcv_p.returncode != 0:
         if snd_p.returncode != 0 and rcv_p.returncode != 0:
-            stderr.write("Send/Receive failed")
+            stderr.write("Send/Receive failed\n")
         elif snd_p.returncode != 0:
-            stderr.write("Send failed")
+            stderr.write("Send failed\n")
         else:
-            stderr.write("Receive failed")
+            stderr.write("Receive failed\n")
         if exists(rcv_subvolume):
             rm_cmd = ("/sbin/btrfs","subvolume","delete",rcv_subvolume)
             try:
