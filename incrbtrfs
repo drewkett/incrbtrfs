@@ -150,6 +150,6 @@ if __name__ == "__main__":
             clean_up(cfg)
     else:
         try:
-            mark_last(snapshot(args.subvolume))
+            mark_last([snapshot(args.subvolume)])
         except CalledProcessError:
             pass
