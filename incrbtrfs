@@ -179,6 +179,7 @@ def send_snapshot(snap,destination,parent_timestamp=None):
     rcv_p = Popen(rcv_cmd,stdin=snd_p.stdout)
     snd_p.stdout.close()
     rcv_p.communicate()
+    snd_p.wait()
     if snd_p.returncode != 0 or rcv_p.returncode != 0:
         if snd_p.returncode != 0 and rcv_p.returncode != 0:
             stderr.write("Send/Receive failed\n")
