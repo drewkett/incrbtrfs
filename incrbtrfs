@@ -75,14 +75,15 @@ def mark_last(snapshots):
     symlink(snap.loc,last_dir)
     snap.keep = True
 
-def get_timestamp_dir(subvolume):
+def get_base_dir(subvolume):
     base = join(subvolume,".incrbtrfs","timestamp")
     if not exists(base):
         makedirs(base)
-    return join(base,timestamp)
+    return base
 
 def snapshot(subvolume):
-    location = get_timestamp_dir(subvolume)
+    base = get_base_dir(subvolume)
+    location = join(base,timestamp)
     command = ('/sbin/btrfs','subvolume','snapshot','-r',subvolume,location)
     check_call(command)
     return Snapshot(location)
@@ -137,9 +138,9 @@ def clean_up(cfg):
         check_call(command)
 
 def send_snapshot(snap,destination):
-    dst = get_timestamp_dir(destination)
+    rcv_base = get_base_dir(destination)
     snd_cmd = ("/sbin/btrfs","send",snap.loc)
-    rcv_cmd = ("/sbin/btrfs","receive",dst)
+    rcv_cmd = ("/sbin/btrfs","receive",rcv_base)
     snd_p = Popen(snd_cmd,stdout=PIPE)
     rcv_p = Popen(rcv_cmd,stdin=snd_p.stdout)
     snd_p.stdout.close()
