@@ -58,7 +58,7 @@ def calc_index(snapshot_dir,snaptype):
 
 def mark_snapshots(cfg,snapshots,snaptype):
     limit = cfg[snaptype+"_limit"]
-    link_dir = join(cfg['directory'],"./incrbtrfs",snaptype)
+    link_dir = join(cfg['directory'],".incrbtrfs",snaptype)
     if not exists(link_dir):
         makedirs(link_dir)
     
