@@ -118,7 +118,7 @@ def read_config(filename):
         "monthly_limit" : 0
         }
     config = ConfigParser(defaults)
-    config.read(args.config)
+    config.read(filename)
 
     for section in config.sections():
         cfg = {}
