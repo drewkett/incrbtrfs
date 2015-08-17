@@ -17,14 +17,17 @@ directory = /home
 hourly_limit = 0
 ```
 
-The limits specify how many snapshots to maintain for each time frame. The remote directory specifies where to back up the snapshots too. Right now it only works for locally mounted drives, though ssh support is planned. 
+- `directory` specifies the subvolume to take a new snapshot of. Snapshots are stored in `$directory/.incrbtrfs`
+- `remote directory` specifies where to back up the snapshots too. Right now it only works for locally mounted drives, though ssh support is planned. 
+- `*_limit` specifies how many snapshots to maintain for each time frame
+` `remote_*_limit` specifies alternate settings for how many snapshots to keep at the remote destination
 
-The program can be run by passing the 
+The program can be run by passing the config file as an argument
 
 ```sh
 incrbtrfs sample.cfg
 ```
-or
+or by running it without arguments
 ```
 #This uses ~/.incrbtrfs.cfg as the config file
 incrbtrfs
