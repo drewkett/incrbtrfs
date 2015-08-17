@@ -1,4 +1,4 @@
-This is a btrfs snapshotting tool which is able to backup to another volume using btrfs send/receive. It runs with a simple configuration file (parsed by ConfigParser in the python std lib) with the following format 
+This is a btrfs snapshotting tool which is able to backup to another volume using btrfs send/receive. It is intended to be run using a cron job with a simple configuration file (parsed by ConfigParser in the python std lib) with the following format 
 
 ```INI
 [DEFAULT]
@@ -23,6 +23,8 @@ hourly_limit = 0
 - `*_limit` specifies how many snapshots to maintain for each time frame
 ` `remote_*_limit` specifies alternate settings for how many snapshots to keep at the remote destination
 
+Note: The first time a snapshot is run with `remote_directory` specified, all of the data in the snapshot must be sent to the other drive, so it may take awhile. Future runs will reuse the existing snapshots as to only send the incrementally changed data.
+
 The program can be run by passing the config file as an argument
 
 ```sh
@@ -34,4 +36,3 @@ or by running it without arguments
 incrbtrfs
 ```
 
-It is recommended to run the program using cron once every hour.
