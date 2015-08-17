@@ -73,14 +73,16 @@ def mark_snapshots(snap_loc,snapshots,snaptype):
             last_index = list(reversed(snapshots_i)).index(i)
             s = list(reversed(snapshots))[last_index]
             s.keep = True
-            symlink(s.loc,index_dir)
+            rel_loc = join("..","timestamp",s.timestamp_str)
+            symlink(rel_loc,index_dir)
 
 def mark_last(snapshots):
     snap = max(snapshots, key=lambda s: s.timestamp)
     last_dir = join(snap.loc,"..","..","last")
     if lexists(last_dir):
         remove(last_dir)
-    symlink(snap.loc,last_dir)
+    rel_loc = join("timestamp",snap.timestamp_str)
+    symlink(rel_loc,last_dir)
     snap.keep = True
     return snap
 
