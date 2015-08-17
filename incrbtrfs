@@ -17,6 +17,7 @@ from argparse import ArgumentParser
 from subprocess import check_call,PIPE,Popen,CalledProcessError
 from os.path import join,exists,basename,lexists,realpath,dirname
 from os import makedirs, listdir, symlink, remove, rename
+from collections import namedtuple
 
 timestamp_strp = "%Y%m%d_%H%M%S_%f"
 
@@ -56,9 +57,9 @@ def calc_index(snapshot_dir,snaptype):
     elif snaptype == "monthly":
         return now.month - timestamp.month + 12*(now.year - timestamp.year)
 
-def mark_snapshots(cfg,snapshots,snaptype):
-    limit = cfg[snaptype+"_limit"]
-    link_dir = join(cfg['directory'],".incrbtrfs",snaptype)
+def mark_snapshots(snap_loc,snapshots,snaptype):
+    limit = getattr(snap_loc.limits,snaptype)
+    link_dir = join(snap_loc.directory,".incrbtrfs",snaptype)
     if not exists(link_dir):
         makedirs(link_dir)
     
@@ -101,14 +102,14 @@ def snapshot(subvolume):
                 check_call(rm_cmd)
             except CalledProcessError:
                 stderr.write("Couldn't delete failed subvolume")
-        exit(1)
+        return None
     return Snapshot(subvolume,timestamp)
 
 def read_config(filename):
     subvolumes = []
     defaults = {
         "directory" : None,
-        "send_to" : None,
+        "remote_directory" : None,
         "hourly_limit" : 0,
         "daily_limit" : 0,
         "weekly_limit" : 0,
@@ -119,35 +120,38 @@ def read_config(filename):
 
     for section in config.sections():
         cfg = {}
-        for k in ('directory','send_to'):
+        for k in ('directory','remote_directory'):
             cfg[k] = config.get(section,k)
         for k in ('hourly_limit','daily_limit','weekly_limit','monthly_limit'):
             cfg[k] = config.getint(section,k)
+            rk = "remote_" + k
+            if config.has_option(section,rk):
+                cfg[rk] = config.getint(section,rk)
+            else:
+                cfg[rk] = cfg[k]
         if not cfg["directory"]:
             continue
         if not exists(cfg["directory"]):
             continue
         yield(cfg)
 
-def clean_up(cfg,parent_timestamp=None):
-    subvolume = cfg["directory"]
+SnapLoc = namedtuple("SnapLoc",["directory","limits"])
+SnapLimits = namedtuple("SnapLimits",["hourly","daily","weekly","monthly"])
+
+def clean_up(snap_loc):
+    subvolume = snap_loc.directory
     base = get_base_dir(subvolume)
     snapshots = [Snapshot(subvolume,t) for t in listdir(base)]
     snapshots = sorted(snapshots,key=lambda s: s.timestamp,reverse=True)
     last = mark_last(snapshots)
     if cfg["hourly_limit"]:
-        mark_snapshots(cfg,snapshots,"hourly")
+        mark_snapshots(snap_loc,snapshots,"hourly")
     if cfg["daily_limit"]:
-        mark_snapshots(cfg,snapshots,"daily")
+        mark_snapshots(snap_loc,snapshots,"daily")
     if cfg["weekly_limit"]:
-        mark_snapshots(cfg,snapshots,"weekly")
+        mark_snapshots(snap_loc,snapshots,"weekly")
     if cfg["monthly_limit"]:
-        mark_snapshots(cfg,snapshots,"monthly")
-    if parent_timestamp:
-        for s in snapshots:
-            if s.timestamp_str == parent_timestamp:
-                s.keep = True
-                break
+        mark_snapshots(snap_loc,snapshots,"monthly")
 
     if not any(snapshot.keep for snapshot in snapshots):
         stderr.write("None marked\n")
@@ -160,11 +164,13 @@ def clean_up(cfg,parent_timestamp=None):
         check_call(command)
     return last
 
-def send_snapshot(snap,destination,parent_timestamp=None):
-    rcv_base = get_base_dir(destination)
-    rcv_subvolume = join(rcv_base,snap.timestamp_str)
+def send_snapshot(local_snap,remote_snap_dir):
+    local_snap_dir = local_snap.subvolume
+    parent_timestamp = get_parent(local_snap_dir,remote_snap_dir)
+    remote_base = get_base_dir(remote_snap_dir)
+    remote_subvolume = join(remote_base,local_snap.timestamp_str)
     if parent_timestamp:
-        parent_loc = join(snap.subvolume,".incrbtrfs","timestamp",parent_timestamp)
+        parent_loc = join(local_snap_dir,".incrbtrfs","timestamp",parent_timestamp)
         stderr.write("Performing Incremental Send/Receive\n")
         stderr.write("Sending = %s\n"%snap.loc)
         stderr.write("Parent = %s\n"%parent_loc)
@@ -173,8 +179,9 @@ def send_snapshot(snap,destination,parent_timestamp=None):
         stderr.write("Performing Full Send/Receive\n")
         stderr.write("Sending = %s\n"%snap.loc)
         snd_cmd = ("/sbin/btrfs","send",snap.loc)
-    rcv_cmd = ("/sbin/btrfs","receive",rcv_base)
-    stderr.write("Receiving = %s\n"%rcv_subvolume)
+    rcv_cmd = ("/sbin/btrfs","receive",remote_base)
+    stderr.write("Receiving = %s\n"%remote_subvolume)
+    check_call(("sync",))
     snd_p = Popen(snd_cmd,stdout=PIPE)
     rcv_p = Popen(rcv_cmd,stdin=snd_p.stdout)
     snd_p.stdout.close()
@@ -187,28 +194,26 @@ def send_snapshot(snap,destination,parent_timestamp=None):
             stderr.write("Send failed\n")
         else:
             stderr.write("Receive failed\n")
-        if exists(rcv_subvolume):
-            rm_cmd = ("/sbin/btrfs","subvolume","delete",rcv_subvolume)
+        if exists(remote_subvolume):
+            rm_cmd = ("/sbin/btrfs","subvolume","delete",remote_subvolume)
             try:
                 check_call(rm_cmd)
             except CalledProcessError:
                 stderr.write("Couldn't delete failed subvolume")
-        exit(1)
+        return False
+    return True
 
     
 timestamp = now.strftime(timestamp_strp)
 
-def get_parent(cfg):
-    snd_subvolume = cfg["directory"]
-    rcv_subvolume = cfg["send_to"]
-    subvolume = cfg["directory"]
-    snd_base = get_base_dir(snd_subvolume)
-    snd_timestamps = listdir(snd_base)
-    rcv_base = get_base_dir(rcv_subvolume)
-    if not exists(rcv_base):
-        makedirs(rcv_base)
-    rcv_timestamps = listdir(rcv_base)
-    timestamps = snd_timestamps + rcv_timestamps
+def get_parent(local_snap_loc,remote_snap_loc):
+    local_base = get_base_dir(local_snap_loc)
+    local_timestamps = listdir(local_base)
+    remote_base = get_base_dir(remote_snap_loc)
+    if not exists(remote_base):
+        makedirs(remote_base)
+    remote_timestamps = listdir(remote_base)
+    timestamps = local_timestamps + remote_timestamps
     timestamps = sorted(timestamps,reverse=True)
     parent = None
     for t1,t2 in zip(timestamps[:-1],timestamps[1:]):
@@ -216,6 +221,24 @@ def get_parent(cfg):
             parent = t1
             break
     return parent
+
+def get_snap_limits(cfg):
+    local_limits = []
+    remote_limits = []
+    local_limits = tuple(cfg["%s_limit"%k] for k in ("hourly","daily","weekly","monthly"))
+    remote_limits = tuple(cfg["remote_%s_limit"%k] for k in ("hourly","daily","weekly","monthly"))
+    local_snap_limits = SnapLimits(*local_limits)
+    remote_snap_limits = SnapLimits(*remote_limits)
+    return local_snap_limits, remote_snap_limits
+
+def get_snap_locs(cfg):
+    local_snap_limits, remote_snap_limits = get_snap_limits(cfg)
+    local_snap_loc = SnapLoc(cfg["directory"],local_snap_limits)
+    if "remote_directory" in cfg:
+        remote_snap_loc = SnapLoc(cfg["remote_directory"],remote_snap_limits)
+    else:
+        remote_snap_loc = None
+    return local_snap_loc, remote_snap_loc
 
 if __name__ == "__main__":
     parser = ArgumentParser()
@@ -232,14 +255,17 @@ if __name__ == "__main__":
         exit(1)
     if args.config:
         for cfg in read_config(args.config):
+            local_snap_loc, remote_snap_loc = get_snap_locs(cfg)
             try:
-                snap = snapshot(cfg["directory"])
+                snap = snapshot(local_snap_loc.directory)
             except CalledProcessError:
                 continue
-            if cfg["send_to"]:
-                parent_timestamp = get_parent(cfg)
-                send_snapshot(snap,cfg["send_to"],parent_timestamp=parent_timestamp)
-            last = clean_up(cfg,parent_timestamp=parent_timestamp)
+            if remote_snap_loc:
+                success = send_snapshot(snap,remote_snap_loc.directory)
+                if success:
+                    clean_up(remote_snap_loc)
+            if snap:
+                clean_up(local_snap_loc)
     else:
         try:
             mark_last([snapshot(args.subvolume)])

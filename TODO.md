@@ -1,5 +1,4 @@
 - Add ssh support
-- Run clean up on send_to paths
 - General cleanup/documentation
 - Add README.md
 - Add dry run option
