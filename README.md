@@ -17,6 +17,7 @@ directory = /home
 hourly_limit = 0
 ```
 
+- Anything specified in `[DEFAULT]` applies to all of the backups
 - `directory` specifies the subvolume to take a new snapshot of. Snapshots are stored in `$directory/.incrbtrfs`
 - `remote directory` specifies where to back up the snapshots too. Right now it only works for locally mounted drives, though ssh support is planned. 
 - `*_limit` specifies how many snapshots to maintain for each time frame
@@ -33,3 +34,4 @@ or by running it without arguments
 incrbtrfs
 ```
 
+It is recommended to run the program using cron once every hour.
