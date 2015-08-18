@@ -149,13 +149,13 @@ def clean_up(snap_loc):
     snapshots = [Snapshot(subvolume,t) for t in listdir(base)]
     snapshots = sorted(snapshots,key=lambda s: s.timestamp,reverse=True)
     last = mark_last(snapshots)
-    if cfg["hourly_limit"]:
+    if snap_loc.limits.hourly:
         mark_snapshots(snap_loc,snapshots,"hourly")
-    if cfg["daily_limit"]:
+    if snap_loc.limits.daily:
         mark_snapshots(snap_loc,snapshots,"daily")
-    if cfg["weekly_limit"]:
+    if snap_loc.limits.weekly:
         mark_snapshots(snap_loc,snapshots,"weekly")
-    if cfg["monthly_limit"]:
+    if snap_loc.limits.monthly:
         mark_snapshots(snap_loc,snapshots,"monthly")
 
     if not any(snapshot.keep for snapshot in snapshots):
