@@ -1,4 +1,4 @@
 - Add ssh support
 - General cleanup/documentation
-- Add README.md
 - Add dry run option
+- Support multiple remotes
