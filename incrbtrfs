@@ -10,7 +10,7 @@ import signal
 from sys import stderr
 from argparse import ArgumentParser
 from subprocess import check_call,PIPE,Popen,CalledProcessError
-from os.path import join,exists,basename,lexists,realpath,dirname
+from os.path import join,exists,basename,lexists,realpath,dirname,expanduser
 from os import makedirs, listdir, symlink, remove, rename
 from collections import namedtuple
 
@@ -118,7 +118,7 @@ def read_config(filename):
     subvolumes = []
     default_limits = SnapLimits(hourly=0,daily=0,weekly=0,monthly=0)
 
-    config = toml.load(filename)
+    config = toml.load(expanduser(filename))
     if "default" in config:
         if "limits" in config["default"]:
             default_limits = default_limits._replace(**extract_limits(config["default"]["limits"]))
