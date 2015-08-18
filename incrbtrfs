@@ -95,6 +95,7 @@ def snapshot(subvolume):
     try:
         check_call(command)
     except CalledProcessError:
+        stderr.write("Failed to create snapshot\n")
         if exists(location):
             rm_cmd = ("/sbin/btrfs","subvolume","delete",location)
             try:
