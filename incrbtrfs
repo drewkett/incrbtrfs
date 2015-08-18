@@ -4,12 +4,7 @@ from datetime import datetime,timedelta
 now = datetime.now()
 monday = datetime(year=1970,month=1,day=5)
 
-import sys
-if sys.version_info.major == 2:
-    from ConfigParser import ConfigParser
-else:
-    from configparser import ConfigParser
-
+import toml
 import socket
 import signal
 from sys import stderr
@@ -25,6 +20,8 @@ parse_timestamp = lambda loc: datetime.strptime(basename(realpath(loc)),timestam
 
 signal.signal(signal.SIGINT,signal.SIG_IGN)
 
+SnapLoc = namedtuple("SnapLoc",["directory","limits"])
+SnapLimits = namedtuple("SnapLimits",["hourly","daily","weekly","monthly"])
 class Snapshot(object):
     def __init__(self,subvolume,timestamp_str):
         self.subvolume = subvolume
@@ -107,38 +104,44 @@ def snapshot(subvolume):
         return None
     return Snapshot(subvolume,timestamp)
 
+limit_names = ("hourly","daily","weekly","monthly")
+def extract_limits(d):
+    ret = {}
+    for name in limit_names:
+        if name in d:
+            if not isinstance(d[name],int):
+                stderr.write("Limits must be integers\n. Ignoring")
+            ret[name] = d[name]
+    return ret
+
 def read_config(filename):
     subvolumes = []
-    defaults = {
-        "directory" : None,
-        "remote_directory" : None,
-        "hourly_limit" : 0,
-        "daily_limit" : 0,
-        "weekly_limit" : 0,
-        "monthly_limit" : 0
-        }
-    config = ConfigParser(defaults)
-    config.read(filename)
+    default_limits = SnapLimits(hourly=0,daily=0,weekly=0,monthly=0)
 
-    for section in config.sections():
-        cfg = {}
-        for k in ('directory','remote_directory'):
-            cfg[k] = config.get(section,k)
-        for k in ('hourly_limit','daily_limit','weekly_limit','monthly_limit'):
-            cfg[k] = config.getint(section,k)
-            rk = "remote_" + k
-            if config.has_option(section,rk):
-                cfg[rk] = config.getint(section,rk)
-            else:
-                cfg[rk] = cfg[k]
-        if not cfg["directory"]:
-            continue
-        if not exists(cfg["directory"]):
-            continue
-        yield(cfg)
+    config = toml.load(filename)
+    if "default" in config:
+        if "limits" in config["default"]:
+            default_limits = default_limits._replace(**extract_limits(config["default"]["limits"]))
 
-SnapLoc = namedtuple("SnapLoc",["directory","limits"])
-SnapLimits = namedtuple("SnapLimits",["hourly","daily","weekly","monthly"])
+    for section in config["snapshot"]:
+        if 'directory' not in section:
+            stderr.write("'directory' not specified for snapshot. Skipping\n")
+            continue
+        local_dir = section['directory']
+        limits = default_limits
+        if 'limits' in section:
+            limits = limits._replace(**extract_limits(section['limits']))
+        local_snap_loc = SnapLoc(local_dir,limits)
+        if 'remote' in section:
+            remote_section = section['remote']
+            if 'directory' not in remote_section:
+                stderr.write("'remote' specified without directory. Skipping\n")
+                continue
+            remote_dir = remote_section['directory']
+            if 'limits' in remote_section:
+                limits = limits._replace(**extract_limits(section['limits']))
+            remote_snap_loc = SnapLoc(remote_dir,limits)
+        yield(local_snap_loc,remote_snap_loc)
 
 def clean_up(snap_loc):
     subvolume = snap_loc.directory
@@ -253,8 +256,7 @@ if __name__ == "__main__":
     except:
         stderr.write("Another incrbtrfs process is running\n")
         exit(1)
-    for cfg in read_config(args.cfg_file):
-        local_snap_loc, remote_snap_loc = get_snap_locs(cfg)
+    for local_snap_loc, remote_snap_loc in read_config(args.cfg_file):
         try:
             snap = snapshot(local_snap_loc.directory)
         except CalledProcessError:
