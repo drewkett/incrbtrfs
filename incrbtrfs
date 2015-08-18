@@ -133,6 +133,7 @@ def read_config(filename):
         if 'limits' in section:
             limits = limits._replace(**extract_limits(section['limits']))
         local_snap_loc = SnapLoc(local_dir,limits)
+        remote_snap_loc = None
         if 'remote' in section:
             remote_section = section['remote']
             if 'directory' not in remote_section:
