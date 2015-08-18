@@ -10,9 +10,34 @@ import signal
 from sys import stderr
 from argparse import ArgumentParser
 from subprocess import check_call,PIPE,Popen,CalledProcessError
-from os.path import join,exists,basename,lexists,realpath,dirname,expanduser
-from os import makedirs, listdir, symlink, remove, rename
+from os.path import join,exists,basename,lexists,realpath,dirname,expanduser,isdir
+from os import makedirs, listdir, symlink, remove
 from collections import namedtuple
+
+dry_run = False
+def safe_symlink(src,dst):
+    if dry_run:
+        print("Link {dst} -> {src}".format(src=src,dst=dst))
+    else:
+        symlink(src,dst)
+
+def safe_remove(loc):
+    if dry_run:
+        print("Remove {loc}".format(loc=loc))
+    else:
+        remove(loc)
+
+def safe_makedirs(loc):
+    if dry_run:
+        print("Make Dirs {loc}".format(loc=loc))
+    else:
+        makedirs(loc)
+
+def safe_call(cmd):
+    if dry_run:
+        print("Call '{cmd}'".format(cmd=" ".join(cmd)))
+    else:
+        check_call(cmd)
 
 timestamp_strp = "%Y%m%d_%H%M%S_%f"
 
@@ -65,21 +90,21 @@ def mark_snapshots(snap_loc,snapshots,snaptype):
     for i in range(limit,-1,-1):
         index_dir = join(link_dir,str(i))
         if lexists(index_dir):
-            remove(index_dir)
+            safe_remove(index_dir)
         if i in snapshots_i:
             last_index = list(reversed(snapshots_i)).index(i)
             s = list(reversed(snapshots))[last_index]
             s.keep = True
             rel_loc = join("..","timestamp",s.timestamp_str)
-            symlink(rel_loc,index_dir)
+            safe_symlink(rel_loc,index_dir)
 
 def mark_last(snapshots):
     snap = max(snapshots, key=lambda s: s.timestamp)
     last_dir = join(snap.loc,"..","..","last")
     if lexists(last_dir):
-        remove(last_dir)
+        safe_remove(last_dir)
     rel_loc = join("timestamp",snap.timestamp_str)
-    symlink(rel_loc,last_dir)
+    safe_symlink(rel_loc,last_dir)
     snap.keep = True
     return snap
 
@@ -93,13 +118,15 @@ def snapshot(subvolume):
     location = join(base,timestamp)
     command = ('/sbin/btrfs','subvolume','snapshot','-r',subvolume,location)
     try:
-        check_call(command)
+        safe_call(command)
+        if dry_run:
+            check_call(("/usr/bin/touch",location))
     except CalledProcessError:
         stderr.write("Failed to create snapshot\n")
         if exists(location):
             rm_cmd = ("/sbin/btrfs","subvolume","delete",location)
             try:
-                check_call(rm_cmd)
+                safe_call(rm_cmd)
             except CalledProcessError:
                 stderr.write("Couldn't delete failed subvolume")
         return None
@@ -148,7 +175,10 @@ def read_config(filename):
 def clean_up(snap_loc):
     subvolume = snap_loc.directory
     base = get_base_dir(subvolume)
-    snapshots = [Snapshot(subvolume,t) for t in listdir(base)]
+    if dry_run:
+        snapshots = [Snapshot(subvolume,t) for t in listdir(base)]
+    else:
+        snapshots = [Snapshot(subvolume,t) for t in listdir(base) if isdir(join(base,t))]
     snapshots = sorted(snapshots,key=lambda s: s.timestamp,reverse=True)
     last = mark_last(snapshots)
     if snap_loc.limits.hourly:
@@ -168,7 +198,11 @@ def clean_up(snap_loc):
         if snapshot.keep:
             continue
         command = ("/sbin/btrfs","subvolume","delete",snapshot.loc)
-        check_call(command)
+        safe_call(command)
+    if dry_run:
+        for snap in listdir(base):
+            if not isdir(join(base,snap)):
+                remove(join(base,snap))
     return last
 
 def send_snapshot(local_snap,remote_snap_dir):
@@ -188,7 +222,10 @@ def send_snapshot(local_snap,remote_snap_dir):
         snd_cmd = ("/sbin/btrfs","send",snap.loc)
     rcv_cmd = ("/sbin/btrfs","receive",remote_base)
     stderr.write("Receiving = %s\n"%remote_subvolume)
-    check_call(("sync",))
+    if dry_run:
+        print("Calling '{snd} | {rcv}'".format(snd=" ".join(snd_cmd),rcv=" ".join(rcv_cmd)))
+        return True
+    safe_call(("sync",))
     snd_p = Popen(snd_cmd,stdout=PIPE)
     rcv_p = Popen(rcv_cmd,stdin=snd_p.stdout)
     snd_p.stdout.close()
@@ -204,7 +241,7 @@ def send_snapshot(local_snap,remote_snap_dir):
         if exists(remote_subvolume):
             rm_cmd = ("/sbin/btrfs","subvolume","delete",remote_subvolume)
             try:
-                check_call(rm_cmd)
+                safe_call(rm_cmd)
             except CalledProcessError:
                 stderr.write("Couldn't delete failed subvolume")
         return False
@@ -250,7 +287,10 @@ def get_snap_locs(cfg):
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("cfg_file",default="~/.incrbtrfs.cfg",nargs='?')
+    parser.add_argument("-n","--dry-run",help="Dry Run",default=False,action="store_true")
     args = parser.parse_args()
+
+    dry_run = args.n
 
     lock = socket.socket(socket.AF_UNIX,socket.SOCK_DGRAM)
     try:
