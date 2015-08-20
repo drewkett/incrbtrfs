@@ -9,12 +9,12 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 )
 
-//TODO implement incremntal backups
 //TODO make sure to delete failed send/receives
 //TODO add comments
 const btrfsBin string = "/sbin/btrfs"
@@ -57,12 +57,17 @@ type Subvolume struct {
 	Remotes   []SubvolumeRemote
 }
 
-type Timestamp struct {
-	string string
-	time   time.Time
-}
+// type Timestamp struct {
+// 	string string
+// 	time   time.Time
+// }
+type Timestamp string
+type Timestamps []Timestamp
+type TimestampMap map[Timestamp]bool
 
-type TimestampMap map[string]bool
+func (p Timestamps) Len() int           { return len(p) }
+func (p Timestamps) Less(i, j int) bool { return string(p[i]) < string(p[j]) }
+func (p Timestamps) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
 func (subvolume *Subvolume) Print() {
 	fmt.Printf("Snapshot Dir='%s' (%s)\n", subvolume.Directory, subvolume.Limits.String())
@@ -98,23 +103,21 @@ func combineLimits(limits Limits, newLimits ...OptionalLimits) (updateLimits Lim
 	return
 }
 
-func timestampFromString(timestampString string) (timestamp Timestamp, err error) {
-	t, err := time.ParseInLocation(timeFormat, timestampString, time.Local)
-	if err != nil {
-		return
-	}
-	timestamp = Timestamp{string: timestampString, time: t}
+func parseTimestamp(timestamp Timestamp) (t time.Time, err error) {
+	t, err = time.ParseInLocation(timeFormat, string(timestamp), time.Local)
 	return
 }
 
-func readTimestampDir(timestampDir string) (timestamps []Timestamp, err error) {
-	fileInfos, err := ioutil.ReadDir(timestampDir)
+func readTimestampDir(subvolumeDir string) (timestamps []Timestamp, err error) {
+	timestampsDir := path.Join(subvolumeDir, subDir, "timestamp")
+	fileInfos, err := ioutil.ReadDir(timestampsDir)
 	if err != nil {
 		return
 	}
 	for _, fi := range fileInfos {
 		if fi.IsDir() {
-			timestamp, err := timestampFromString(fi.Name())
+			timestamp := Timestamp(fi.Name())
+			_, err := parseTimestamp(timestamp)
 			if err != nil {
 				continue
 			}
@@ -178,7 +181,12 @@ func clean(subvolume Subvolume, interval string, now time.Time, timestamps []Tim
 	keptTimestamps = make(TimestampMap)
 	for _, timestamp := range timestamps {
 		var i int
-		i, err = calcIndex(now, timestamp.time, interval)
+		var snapshotTime time.Time
+		snapshotTime, err = parseTimestamp(timestamp)
+		if err != nil {
+			continue
+		}
+		i, err = calcIndex(now, snapshotTime, interval)
 		if err != nil {
 			fmt.Println(err.Error())
 			err = nil
@@ -188,8 +196,8 @@ func clean(subvolume Subvolume, interval string, now time.Time, timestamps []Tim
 			continue
 		}
 		keptIndices[i] = true
-		keptTimestamps[timestamp.string] = true
-		src := path.Join("..", "timestamp", timestamp.string)
+		keptTimestamps[timestamp] = true
+		src := path.Join("..", "timestamp", string(timestamp))
 		dst := path.Join(dir, strconv.Itoa(i))
 		if *verboseFlag {
 			fmt.Printf("Symlink '%s' => '%s'\n", dst, src)
@@ -208,17 +216,17 @@ func (tm *TimestampMap) Merge(other TimestampMap) {
 	}
 }
 
-func cleanUp(subvolume Subvolume, nowTimestamp Timestamp) (err error) {
-	timestampsDir := path.Join(subvolume.Directory, subDir, "timestamp")
-	timestamps, err := readTimestampDir(timestampsDir)
+func cleanUp(subvolume Subvolume, nowTimestamp Timestamp, timestamps []Timestamp) (err error) {
+	now, err := parseTimestamp(nowTimestamp)
 	if err != nil {
 		return
 	}
+	timestampsDir := path.Join(subvolume.Directory, subDir, "timestamp")
 	keptTimestamps := make(TimestampMap)
-	keptTimestamps[nowTimestamp.string] = true
+	keptTimestamps[nowTimestamp] = true
 	var tempMap TimestampMap
 	for _, interval := range Intervals {
-		tempMap, err = clean(subvolume, interval, nowTimestamp.time, timestamps)
+		tempMap, err = clean(subvolume, interval, now, timestamps)
 		if err != nil {
 			return
 		}
@@ -226,9 +234,9 @@ func cleanUp(subvolume Subvolume, nowTimestamp Timestamp) (err error) {
 	}
 	// Remove unneeded timestamps
 	for _, timestamp := range timestamps {
-		if _, ok := keptTimestamps[timestamp.string]; !ok {
+		if _, ok := keptTimestamps[timestamp]; !ok {
 			var output []byte
-			timestampLoc := path.Join(timestampsDir, timestamp.string)
+			timestampLoc := path.Join(timestampsDir, string(timestamp))
 			btrfsCmd := exec.Command(btrfsBin, "subvolume", "delete", timestampLoc)
 			output, err = btrfsCmd.CombinedOutput()
 			if err != nil {
@@ -246,6 +254,20 @@ func printCommand(cmd *exec.Cmd) {
 	fmt.Printf("Running '%s %s'\n", cmd.Path, strings.Join(cmd.Args[1:], " "))
 }
 
+func calcParent(localTimestamps []Timestamp, remoteTimestamps []Timestamp) Timestamp {
+	timestampMap := make(TimestampMap)
+	for _, timestamp := range localTimestamps {
+		timestampMap[timestamp] = true
+	}
+	sort.Sort(sort.Reverse(Timestamps(remoteTimestamps)))
+	for _, remoteTimestamp := range remoteTimestamps {
+		if _, ok := timestampMap[remoteTimestamp]; ok {
+			return remoteTimestamp
+		}
+	}
+	return ""
+}
+
 func receiveSnapshot(subvolume Subvolume, timestamp Timestamp) (err error) {
 	targetPath := path.Join(subvolume.Directory, subDir, "timestamp")
 	receiveCmd := exec.Command(btrfsBin, "receive", targetPath)
@@ -254,13 +276,70 @@ func receiveSnapshot(subvolume Subvolume, timestamp Timestamp) (err error) {
 	if err != nil {
 		fmt.Print(receiveOut)
 	}
-	cleanUp(subvolume, timestamp)
+	timestamps, err := readTimestampDir(subvolume.Directory)
+	if err != nil {
+		return
+	}
+	err = cleanUp(subvolume, timestamp, timestamps)
+	if err != nil {
+		return
+	}
 	return
 }
 
-func sendSnapshot(snapshotPath string, remote SubvolumeRemote) (err error) {
+func getRemoteTimestamps(remote SubvolumeRemote) (timestamps []Timestamp, err error) {
+	sshPath := remote.Host
+	if remote.User != "" {
+		sshPath = remote.User + "@" + sshPath
+	}
+	var receiveCheckOut []byte
+	var receiveCheckErr bytes.Buffer
+	receiveCheckCmd := exec.Command("ssh", sshPath, "incrbtrfs", "-receiveCheck", remote.Directory)
+	receiveCheckCmd.Stderr = &receiveCheckErr
+	receiveCheckOut, err = receiveCheckCmd.Output()
+	if err != nil {
+		fmt.Println("Failed to run ReceiveCheck")
+		fmt.Println(string(receiveCheckOut))
+		fmt.Println(receiveCheckErr.String())
+		return
+	}
+	fmt.Println(string(receiveCheckOut))
+	var checkStr RemoteCheck
+	err = json.Unmarshal(receiveCheckOut, &checkStr)
+	if err != nil {
+		fmt.Println("Failed to read ReceiveCheck JSON")
+		return
+	}
+	if checkStr.Version != version {
+		err = fmt.Errorf("Incompatible Version Local (%d) != Remote (%d)", version, checkStr.Version)
+		return
+	}
+	for _, timestampStr := range checkStr.Timestamps {
+		timestamp := Timestamp(timestampStr)
+		_, err := parseTimestamp(timestamp)
+		if err != nil {
+			continue
+		}
+		timestamps = append(timestamps, timestamp)
+	}
+	return
+}
+
+func sendSnapshot(snapshotPath string, remote SubvolumeRemote, parent Timestamp) (err error) {
 	var sendErr bytes.Buffer
-	sendCmd := exec.Command(btrfsBin, "send", snapshotPath)
+	var sendCmd *exec.Cmd
+	if parent == "" {
+		if *verboseFlag {
+			fmt.Println("Performing full send/receive")
+		}
+		sendCmd = exec.Command(btrfsBin, "send", snapshotPath)
+	} else {
+		if *verboseFlag {
+			fmt.Println("Performing incremental send/receive")
+		}
+		parentPath := path.Join(path.Dir(snapshotPath), string(parent))
+		sendCmd = exec.Command(btrfsBin, "send", "-p", parentPath, snapshotPath)
+	}
 	sendCmd.Stderr = &sendErr
 	sendOut, err := sendCmd.StdoutPipe()
 	if err != nil {
@@ -279,27 +358,27 @@ func sendSnapshot(snapshotPath string, remote SubvolumeRemote) (err error) {
 		if remote.User != "" {
 			sshPath = remote.User + "@" + sshPath
 		}
-		var receiveCheckOut []byte
-		var receiveCheckErr bytes.Buffer
-		receiveCheckCmd := exec.Command("ssh", sshPath, "incrbtrfs", "-receiveCheck", remote.Directory)
-		receiveCheckCmd.Stderr = &receiveCheckErr
-		receiveCheckOut, err = receiveCheckCmd.Output()
-		if err != nil {
-			fmt.Println("Failed to run ReceiveCheck")
-			fmt.Println(string(receiveCheckOut))
-			fmt.Println(receiveCheckErr.String())
-			return
-		}
-		var checkStr RemoteCheck
-		err = json.Unmarshal(receiveCheckOut, &checkStr)
-		if err != nil {
-			fmt.Println("Failed to read ReceiveCheck JSON")
-			return
-		}
-		if checkStr.Version != version {
-			err = fmt.Errorf("Incompatible Version Local (%d) != Remote (%d)", version, checkStr.Version)
-			return
-		}
+		// var receiveCheckOut []byte
+		// var receiveCheckErr bytes.Buffer
+		// receiveCheckCmd := exec.Command("ssh", sshPath, "incrbtrfs", "-receiveCheck", remote.Directory)
+		// receiveCheckCmd.Stderr = &receiveCheckErr
+		// receiveCheckOut, err = receiveCheckCmd.Output()
+		// if err != nil {
+		// 	fmt.Println("Failed to run ReceiveCheck")
+		// 	fmt.Println(string(receiveCheckOut))
+		// 	fmt.Println(receiveCheckErr.String())
+		// 	return
+		// }
+		// var checkStr RemoteCheck
+		// err = json.Unmarshal(receiveCheckOut, &checkStr)
+		// if err != nil {
+		// 	fmt.Println("Failed to read ReceiveCheck JSON")
+		// 	return
+		// }
+		// if checkStr.Version != version {
+		// 	err = fmt.Errorf("Incompatible Version Local (%d) != Remote (%d)", version, checkStr.Version)
+		// 	return
+		// }
 		receiveArgs := []string{sshPath, "incrbtrfs", "-receive", remote.Directory, "-timestamp", path.Base(snapshotPath)}
 		fmt.Println(remote.Limits.String())
 		if remote.Limits.Hourly > 0 {
@@ -347,7 +426,7 @@ func sendSnapshot(snapshotPath string, remote SubvolumeRemote) (err error) {
 }
 
 func runSnapshot(subvolume Subvolume, timestamp Timestamp) (err error) {
-	targetPath := path.Join(subvolume.Directory, subDir, "timestamp", timestamp.string)
+	targetPath := path.Join(subvolume.Directory, subDir, "timestamp", string(timestamp))
 	btrfsCmd := exec.Command(btrfsBin, "subvolume", "snapshot", "-r", subvolume.Directory, targetPath)
 	if *verboseFlag {
 		printCommand(btrfsCmd)
@@ -362,13 +441,36 @@ func runSnapshot(subvolume Subvolume, timestamp Timestamp) (err error) {
 	if *verboseFlag {
 		fmt.Printf("%s", output)
 	}
-	err = cleanUp(subvolume, timestamp)
+
+	timestamps, err := readTimestampDir(subvolume.Directory)
+	if err != nil {
+		return
+	}
+	err = cleanUp(subvolume, timestamp, timestamps)
 	if err != nil {
 		return
 	}
 
 	for _, remote := range subvolume.Remotes {
-		err = sendSnapshot(targetPath, remote)
+		var remoteTimestamps []Timestamp
+		if remote.Host == "" {
+			remoteTimestamps, err = readTimestampDir(subvolume.Directory)
+			if err != nil {
+				fmt.Println(err.Error())
+				err = nil
+				continue
+			}
+		} else {
+			remoteTimestamps, err = getRemoteTimestamps(remote)
+			if err != nil {
+				fmt.Println(err.Error())
+				err = nil
+				continue
+			}
+		}
+		parentTimestamp := calcParent(timestamps, remoteTimestamps)
+		fmt.Printf("Parent = %s\n", string(parentTimestamp))
+		err = sendSnapshot(targetPath, remote, parentTimestamp)
 		if err != nil {
 			fmt.Println("Error sending snapshot")
 			fmt.Println(err.Error())
@@ -381,8 +483,7 @@ func runSnapshot(subvolume Subvolume, timestamp Timestamp) (err error) {
 
 func getCurrentTimestamp() Timestamp {
 	currentTime := time.Now()
-	s := currentTime.Format(timeFormat)
-	return Timestamp{string: s, time: currentTime}
+	return Timestamp(currentTime.Format(timeFormat))
 }
 
 type RemoteCheck struct {
@@ -391,7 +492,8 @@ type RemoteCheck struct {
 }
 
 func runRemoteCheck() {
-	fis, err := ioutil.ReadDir(*receiveCheckFlag)
+	timestampsDir := path.Join(*receiveCheckFlag, subDir, "timestamp")
+	fis, err := ioutil.ReadDir(timestampsDir)
 	if err != nil {
 		fmt.Print(err.Error())
 		os.Exit(1)
@@ -401,11 +503,12 @@ func runRemoteCheck() {
 	checkStr.Timestamps = make([]string, 0)
 	for _, fi := range fis {
 		if fi.IsDir() {
-			timestamp, err := timestampFromString(fi.Name())
+			timestamp := Timestamp(fi.Name())
+			_, err := parseTimestamp(timestamp)
 			if err != nil {
 				continue
 			}
-			checkStr.Timestamps = append(checkStr.Timestamps, timestamp.string)
+			checkStr.Timestamps = append(checkStr.Timestamps, string(timestamp))
 		}
 	}
 	data, err := json.Marshal(checkStr)
@@ -432,7 +535,8 @@ func runRemote() {
 		Daily:   *dailyFlag,
 		Weekly:  *weeklyFlag,
 		Monthly: *monthlyFlag}
-	timestamp, err := timestampFromString(*timestampFlag)
+	timestamp := Timestamp(*timestampFlag)
+	_, err := parseTimestamp(timestamp)
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
