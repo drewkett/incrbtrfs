@@ -3,12 +3,16 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"os/user"
 	"path"
 	"strings"
 
 	"github.com/BurntSushi/toml"
 )
+
+const btrfsBin string = "/sbin/btrfs"
+const subDir string = ".incrbtrfs"
 
 type OptionalLimits struct {
 	Hourly  *int
@@ -136,6 +140,18 @@ func parseConfig(configFile string) (subvolumes []Subvolume) {
 	return subvolumes
 }
 
+func runSnapshot(subvolume Subvolume) (err error) {
+	targetPath := path.Join(subvolume.Directory, subDir, "timestamp")
+	btrfsCmd := exec.Command(btrfsBin, "subvolume", "snapshot", "-r", subvolume.Directory, targetPath)
+	output, err := btrfsCmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("%s", output)
+		fmt.Println(err)
+		return
+	}
+	return
+}
+
 func main() {
 	currentUser, err := user.Current()
 	if err != nil {
@@ -144,5 +160,8 @@ func main() {
 	configFile := path.Join(currentUser.HomeDir, ".incrbtrfs.cfg")
 	subvolumes := parseConfig(configFile)
 	printSubvolumes(subvolumes)
+	for _, subvolume := range subvolumes {
+		runSnapshot(subvolume)
+	}
 	// fmt.Printf("Undecoded keys: %q\n", metadata.Undecoded())
 }
