@@ -1,3 +1,8 @@
 - Add ssh support
 - General cleanup/documentation
-- Support multiple remotes
+- Finish GO conversion
+  - Create Snapshots
+  - Run Clean up
+  - Implement Send/Receive
+  - Run Remote Cleanup
+  - Add SSH Support

@@ -1,3 +1,5 @@
+In process of converting to go. Old file can be found at incrbtrfs.py
+
 This is a btrfs snapshotting tool which is able to backup to another volume using btrfs send/receive. It is intended to be run using a cron job with a simple TOML configuration file  with the following format 
 
 ```TOML
