@@ -140,6 +140,24 @@ func parseConfig(configFile string) (subvolumes []Subvolume) {
 	return subvolumes
 }
 
+func cleanUpOne(dir string, n int) (err error) {
+	//Clear directory. Iterate to find matches
+	return
+}
+
+func cleanUp(subvolume Subvolume) (err error) {
+	//Read Timestamp directory and return kept map with all falses
+	hourlyPath := path.Join(subvolume.Directory, subDir, "hourly")
+	cleanUpOne(hourlyPath, subvolume.Limits.Hourly)
+	dailyPath := path.Join(subvolume.Directory, subDir, "daily")
+	cleanUpOne(dailyPath, subvolume.Limits.Daily)
+	weeklyPath := path.Join(subvolume.Directory, subDir, "weekly")
+	cleanUpOne(weeklyPath, subvolume.Limits.Weekly)
+	monthlyPath := path.Join(subvolume.Directory, subDir, "monthly")
+	cleanUpOne(monthlyPath, subvolume.Limits.Monthly)
+	return
+}
+
 func runSnapshot(subvolume Subvolume) (err error) {
 	targetPath := path.Join(subvolume.Directory, subDir, "timestamp")
 	btrfsCmd := exec.Command(btrfsBin, "subvolume", "snapshot", "-r", subvolume.Directory, targetPath)
@@ -149,6 +167,7 @@ func runSnapshot(subvolume Subvolume) (err error) {
 		fmt.Println(err)
 		return
 	}
+	cleanUp(subvolume)
 	return
 }
 
