@@ -16,6 +16,10 @@ const btrfsBin string = "/sbin/btrfs"
 const subDir string = ".incrbtrfs"
 const timeFormat string = "20060102_150405"
 
+var Intervals = [...]string{"hourly", "daily", "weekly", "monthly"}
+var quiet = flag.Bool("quiet", false, "Quiet Mode")
+var verbose = flag.Bool("verbose", false, "Verbose Mode")
+
 type Limits struct {
 	Hourly  int
 	Daily   int
@@ -35,6 +39,13 @@ type Subvolume struct {
 	Limits    Limits
 	Remotes   []SubvolumeRemote
 }
+
+type Timestamp struct {
+	string string
+	time   time.Time
+}
+
+type TimestampMap map[string]bool
 
 func (subvolume *Subvolume) Print() {
 	fmt.Printf("Snapshot Dir='%s' (Hourly=%d, Daily=%d, Weekly=%d, Monthly=%d)\n",
@@ -78,11 +89,6 @@ func combineLimits(limits Limits, newLimits ...OptionalLimits) (updateLimits Lim
 		}
 	}
 	return
-}
-
-type Timestamp struct {
-	string string
-	time   time.Time
 }
 
 func readTimestampDir(timestampDir string) (timestamps []Timestamp, err error) {
@@ -180,15 +186,11 @@ func clean(subvolume Subvolume, interval string, now time.Time, timestamps []Tim
 	return
 }
 
-type TimestampMap map[string]bool
-
 func (tm *TimestampMap) Merge(other TimestampMap) {
 	for key, _ := range other {
 		(*tm)[key] = true
 	}
 }
-
-var Intervals = [...]string{"hourly", "daily", "weekly", "monthly"}
 
 func cleanUp(subvolume Subvolume, nowTimestamp Timestamp) (err error) {
 	timestampsDir := path.Join(subvolume.Directory, subDir, "timestamp")
@@ -250,9 +252,6 @@ func getCurrentTimestamp() Timestamp {
 	s := currentTime.Format(timeFormat)
 	return Timestamp{string: s, time: currentTime}
 }
-
-var quiet = flag.Bool("quiet", false, "Quiet Mode")
-var verbose = flag.Bool("verbose", false, "Verbose Mode")
 
 func main() {
 	flag.Parse()
