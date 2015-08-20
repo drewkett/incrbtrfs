@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -19,10 +20,12 @@ import (
 const btrfsBin string = "/sbin/btrfs"
 const subDir string = ".incrbtrfs"
 const timeFormat string = "20060102_150405"
+const version int = 1
 
 var Intervals = [...]string{"hourly", "daily", "weekly", "monthly"}
 var quietFlag = flag.Bool("quiet", false, "Quiet Mode")
 var verboseFlag = flag.Bool("verbose", false, "Verbose Mode")
+var receiveCheckFlag = flag.String("receiveCheck", "", "Receive Mode (Check)")
 var receiveFlag = flag.String("receive", "", "Receive Mode")
 var timestampFlag = flag.String("timestamp", "", "Timestamp for Receive Mode")
 var hourlyFlag = flag.Int("hourly", 0, "Hourly Limit")
@@ -276,6 +279,27 @@ func sendSnapshot(snapshotPath string, remote SubvolumeRemote) (err error) {
 		if remote.User != "" {
 			sshPath = remote.User + "@" + sshPath
 		}
+		var receiveCheckOut []byte
+		var receiveCheckErr bytes.Buffer
+		receiveCheckCmd := exec.Command("ssh", sshPath, "incrbtrfs", "-receiveCheck", remote.Directory)
+		receiveCheckCmd.Stderr = &receiveCheckErr
+		receiveCheckOut, err = receiveCheckCmd.Output()
+		if err != nil {
+			fmt.Println("Failed to run ReceiveCheck")
+			fmt.Println(string(receiveCheckOut))
+			fmt.Println(receiveCheckErr.String())
+			return
+		}
+		var checkStr RemoteCheck
+		err = json.Unmarshal(receiveCheckOut, &checkStr)
+		if err != nil {
+			fmt.Println("Failed to read ReceiveCheck JSON")
+			return
+		}
+		if checkStr.Version != version {
+			err = fmt.Errorf("Incompatible Version Local (%d) != Remote (%d)", version, checkStr.Version)
+			return
+		}
 		receiveArgs := []string{sshPath, "incrbtrfs", "-receive", remote.Directory, "-timestamp", path.Base(snapshotPath)}
 		fmt.Println(remote.Limits.String())
 		if remote.Limits.Hourly > 0 {
@@ -361,6 +385,41 @@ func getCurrentTimestamp() Timestamp {
 	return Timestamp{string: s, time: currentTime}
 }
 
+type RemoteCheck struct {
+	Version    int
+	Timestamps []string
+}
+
+func runRemoteCheck() {
+	fis, err := ioutil.ReadDir(*receiveCheckFlag)
+	if err != nil {
+		fmt.Print(err.Error())
+		os.Exit(1)
+	}
+	var checkStr RemoteCheck
+	checkStr.Version = version
+	checkStr.Timestamps = make([]string, 0)
+	for _, fi := range fis {
+		if fi.IsDir() {
+			timestamp, err := timestampFromString(fi.Name())
+			if err != nil {
+				continue
+			}
+			checkStr.Timestamps = append(checkStr.Timestamps, timestamp.string)
+		}
+	}
+	data, err := json.Marshal(checkStr)
+	if err != nil {
+		fmt.Print(err)
+		os.Exit(1)
+	}
+	n, err := os.Stdout.Write(data)
+	if err != nil || n != len(data) {
+		fmt.Print(err)
+		os.Exit(1)
+	}
+}
+
 func runRemote() {
 	if *timestampFlag == "" {
 		fmt.Println("Must specify timestamp in receive mode")
@@ -417,7 +476,9 @@ func runLocal() {
 
 func main() {
 	flag.Parse()
-	if *receiveFlag != "" {
+	if *receiveCheckFlag != "" {
+		runRemoteCheck()
+	} else if *receiveFlag != "" {
 		runRemote()
 	} else {
 		runLocal()
