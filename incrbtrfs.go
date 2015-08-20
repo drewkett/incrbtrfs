@@ -10,46 +10,17 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/BurntSushi/toml"
 )
 
 const btrfsBin string = "/sbin/btrfs"
 const subDir string = ".incrbtrfs"
 const timeFormat string = "20060102_150405"
 
-type OptionalLimits struct {
-	Hourly  *int
-	Daily   *int
-	Weekly  *int
-	Monthly *int
-}
-
 type Limits struct {
 	Hourly  int
 	Daily   int
 	Weekly  int
 	Monthly int
-}
-
-type Config struct {
-	Defaults struct {
-		Limits OptionalLimits
-		Remote struct {
-			Limits OptionalLimits
-		}
-	}
-	// Snapshot []SnapshotConfig
-	Snapshot []struct {
-		Directory string
-		Limits    OptionalLimits
-		Remote    []struct {
-			Host      string
-			User      string
-			Directory string
-			Limits    OptionalLimits
-		}
-	}
 }
 
 type SubvolumeRemote struct {
@@ -106,11 +77,6 @@ func combineLimits(limits Limits, newLimits ...OptionalLimits) (updateLimits Lim
 			updateLimits.Monthly = *l.Monthly
 		}
 	}
-	return
-}
-
-func parseFile(configFile string) (config Config, err error) {
-	_, err = toml.DecodeFile(configFile, &config)
 	return
 }
 
