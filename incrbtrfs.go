@@ -80,27 +80,6 @@ func combineLimits(limits Limits, newLimits ...OptionalLimits) (updateLimits Lim
 	return
 }
 
-func parseConfig(config Config) (subvolumes []Subvolume) {
-	var localDefaults Limits
-	localDefaults = combineLimits(localDefaults, config.Defaults.Limits)
-	remoteDefaults := combineLimits(localDefaults, config.Defaults.Remote.Limits)
-	for _, snapshot := range config.Snapshot {
-		var subvolume Subvolume
-		subvolume.Directory = snapshot.Directory
-		subvolume.Limits = combineLimits(localDefaults, snapshot.Limits)
-		for _, remote := range snapshot.Remote {
-			var subvolumeRemote SubvolumeRemote
-			subvolumeRemote.User = remote.User
-			subvolumeRemote.Host = remote.Host
-			subvolumeRemote.Directory = remote.Directory
-			subvolumeRemote.Limits = combineLimits(remoteDefaults, snapshot.Limits, remote.Limits)
-			subvolume.Remotes = append(subvolume.Remotes, subvolumeRemote)
-		}
-		subvolumes = append(subvolumes, subvolume)
-	}
-	return subvolumes
-}
-
 type Timestamp struct {
 	string string
 	time   time.Time

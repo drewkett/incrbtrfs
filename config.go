@@ -33,3 +33,24 @@ func parseFile(configFile string) (config Config, err error) {
 	_, err = toml.DecodeFile(configFile, &config)
 	return
 }
+
+func parseConfig(config Config) (subvolumes []Subvolume) {
+	var localDefaults Limits
+	localDefaults = combineLimits(localDefaults, config.Defaults.Limits)
+	remoteDefaults := combineLimits(localDefaults, config.Defaults.Remote.Limits)
+	for _, snapshot := range config.Snapshot {
+		var subvolume Subvolume
+		subvolume.Directory = snapshot.Directory
+		subvolume.Limits = combineLimits(localDefaults, snapshot.Limits)
+		for _, remote := range snapshot.Remote {
+			var subvolumeRemote SubvolumeRemote
+			subvolumeRemote.User = remote.User
+			subvolumeRemote.Host = remote.Host
+			subvolumeRemote.Directory = remote.Directory
+			subvolumeRemote.Limits = combineLimits(remoteDefaults, snapshot.Limits, remote.Limits)
+			subvolume.Remotes = append(subvolume.Remotes, subvolumeRemote)
+		}
+		subvolumes = append(subvolumes, subvolume)
+	}
+	return subvolumes
+}
