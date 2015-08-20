@@ -158,11 +158,6 @@ func readTimestampDir(timestampDir string) (timestamps []Timestamp, err error) {
 	return
 }
 
-func cleanUpOne(dir string, n int, timestamps []Timestamp) (err error) {
-	//TODO Clear directory. Iterate to find matches
-	return
-}
-
 func calcIndex(now time.Time, snapshotTime time.Time, interval string) (i int, err error) {
 	firstMonday := time.Date(1970, 1, 5, 0, 0, 0, 0, time.UTC)
 	switch interval {
@@ -301,6 +296,7 @@ func runSnapshot(subvolume Subvolume, timestamp Timestamp) (err error) {
 		fmt.Printf("%s", output)
 	}
 	err = cleanUp(subvolume, timestamp)
+	// Handle Remotes w/ and w/o SSH
 	return
 }
 
