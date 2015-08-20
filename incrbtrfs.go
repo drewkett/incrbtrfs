@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"os/user"
 	"path"
@@ -61,68 +60,59 @@ type Subvolume struct {
 	Remotes   []SubvolumeRemote
 }
 
-func printSubvolumes(subvolumes []Subvolume) {
-	for _, subvolume := range subvolumes {
-		fmt.Printf("Snapshot Dir='%s' (Hourly=%d, Daily=%d, Weekly=%d, Monthly=%d)\n",
-			subvolume.Directory,
-			subvolume.Limits.Hourly,
-			subvolume.Limits.Daily,
-			subvolume.Limits.Weekly,
-			subvolume.Limits.Monthly)
-		for _, remote := range subvolume.Remotes {
-			dst := remote.Directory
-			if remote.Host != "" {
-				dst = strings.Join([]string{remote.Host, dst}, ":")
-				if remote.User != "" {
-					dst = strings.Join([]string{remote.User, dst}, "@")
-				}
+func (subvolume *Subvolume) Print() {
+	fmt.Printf("Snapshot Dir='%s' (Hourly=%d, Daily=%d, Weekly=%d, Monthly=%d)\n",
+		subvolume.Directory,
+		subvolume.Limits.Hourly,
+		subvolume.Limits.Daily,
+		subvolume.Limits.Weekly,
+		subvolume.Limits.Monthly)
+	for _, remote := range subvolume.Remotes {
+		dst := remote.Directory
+		if remote.Host != "" {
+			dst = strings.Join([]string{remote.Host, dst}, ":")
+			if remote.User != "" {
+				dst = strings.Join([]string{remote.User, dst}, "@")
 			}
-			fmt.Printf("Remote Dir='%s' (Hourly=%d, Daily=%d, Weekly=%d, Monthly=%d)\n",
-				dst,
-				remote.Limits.Hourly,
-				remote.Limits.Daily,
-				remote.Limits.Weekly,
-				remote.Limits.Monthly)
+		}
+		fmt.Printf("Remote Dir='%s' (Hourly=%d, Daily=%d, Weekly=%d, Monthly=%d)\n",
+			dst,
+			remote.Limits.Hourly,
+			remote.Limits.Daily,
+			remote.Limits.Weekly,
+			remote.Limits.Monthly)
+	}
+
+}
+
+func combineLimits(limits Limits, newLimits ...OptionalLimits) (updateLimits Limits) {
+	updateLimits = limits
+	for _, l := range newLimits {
+		if l.Hourly != nil {
+			updateLimits.Hourly = *l.Hourly
+		}
+		if l.Daily != nil {
+			updateLimits.Daily = *l.Daily
+		}
+		if l.Weekly != nil {
+			updateLimits.Weekly = *l.Weekly
+		}
+		if l.Monthly != nil {
+			updateLimits.Monthly = *l.Monthly
 		}
 	}
-}
-
-func combineLimits(limits Limits, newLimits OptionalLimits) (updateLimits Limits) {
-	updateLimits = limits
-	if newLimits.Hourly != nil {
-		updateLimits.Hourly = *newLimits.Hourly
-	}
-	if newLimits.Daily != nil {
-		updateLimits.Daily = *newLimits.Daily
-	}
-	if newLimits.Weekly != nil {
-		updateLimits.Weekly = *newLimits.Weekly
-	}
-	if newLimits.Monthly != nil {
-		updateLimits.Monthly = *newLimits.Monthly
-	}
 	return
 }
 
-func getLimits(config Config, metadata toml.MetaData) (local Limits, remote Limits) {
-	local = combineLimits(local, config.Defaults.Limits)
-	remote = combineLimits(local, config.Defaults.Remote.Limits)
+func parseFile(configFile string) (config Config, err error) {
+	_, err = toml.DecodeFile(configFile, &config)
 	return
 }
 
-func parseConfig(configFile string) (subvolumes []Subvolume) {
-	var config Config
-	metadata, err := toml.DecodeFile(configFile, &config)
-	if err != nil {
-		fmt.Printf("Error reading file : %s", err)
-		os.Exit(1)
-	}
-	// undecoded := metadata.Undecoded()
-	// if len(undecoded) > 0 {
-	// 	fmt.Printf("Extra keys defined : %q\n", undecoded)
-	// 	os.Exit(1)
-	// }
-	localDefaults, remoteDefaults := getLimits(config, metadata)
+func parseConfig(config Config) (subvolumes []Subvolume) {
+	var localDefaults Limits
+	localDefaults = combineLimits(localDefaults, config.Defaults.Limits)
+	remoteDefaults := combineLimits(localDefaults, config.Defaults.Remote.Limits)
 	for _, snapshot := range config.Snapshot {
 		var subvolume Subvolume
 		subvolume.Directory = snapshot.Directory
@@ -132,7 +122,7 @@ func parseConfig(configFile string) (subvolumes []Subvolume) {
 			subvolumeRemote.User = remote.User
 			subvolumeRemote.Host = remote.Host
 			subvolumeRemote.Directory = remote.Directory
-			subvolumeRemote.Limits = combineLimits(combineLimits(remoteDefaults, snapshot.Limits), remote.Limits)
+			subvolumeRemote.Limits = combineLimits(remoteDefaults, snapshot.Limits, remote.Limits)
 			subvolume.Remotes = append(subvolume.Remotes, subvolumeRemote)
 		}
 		subvolumes = append(subvolumes, subvolume)
@@ -141,12 +131,12 @@ func parseConfig(configFile string) (subvolumes []Subvolume) {
 }
 
 func cleanUpOne(dir string, n int) (err error) {
-	//Clear directory. Iterate to find matches
+	//TODO Clear directory. Iterate to find matches
 	return
 }
 
 func cleanUp(subvolume Subvolume) (err error) {
-	//Read Timestamp directory and return kept map with all falses
+	//TODO Read Timestamp directory and return kept map with all falses
 	hourlyPath := path.Join(subvolume.Directory, subDir, "hourly")
 	cleanUpOne(hourlyPath, subvolume.Limits.Hourly)
 	dailyPath := path.Join(subvolume.Directory, subDir, "daily")
@@ -172,15 +162,21 @@ func runSnapshot(subvolume Subvolume) (err error) {
 }
 
 func main() {
+	//TODO Generate timestamp
 	currentUser, err := user.Current()
 	if err != nil {
 		panic(err)
 	}
 	configFile := path.Join(currentUser.HomeDir, ".incrbtrfs.cfg")
-	subvolumes := parseConfig(configFile)
-	printSubvolumes(subvolumes)
+	config, err := parseFile(configFile)
+	if err != nil {
+		panic(err)
+	}
+	subvolumes := parseConfig(config)
+	for _, subvolume := range subvolumes {
+		subvolume.Print()
+	}
 	for _, subvolume := range subvolumes {
 		runSnapshot(subvolume)
 	}
-	// fmt.Printf("Undecoded keys: %q\n", metadata.Undecoded())
 }
