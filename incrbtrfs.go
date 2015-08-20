@@ -73,9 +73,9 @@ func printSubvolumes(subvolumes []Subvolume) {
 			dst := remote.Directory
 			if remote.Host != "" {
 				dst = strings.Join([]string{remote.Host, dst}, ":")
-			}
-			if remote.User != "" {
-				dst = strings.Join([]string{remote.User, dst}, "@")
+				if remote.User != "" {
+					dst = strings.Join([]string{remote.User, dst}, "@")
+				}
 			}
 			fmt.Printf("Remote Dir='%s' (Hourly=%d, Daily=%d, Weekly=%d, Monthly=%d)\n",
 				dst,
