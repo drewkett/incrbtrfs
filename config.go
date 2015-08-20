@@ -16,7 +16,6 @@ type Config struct {
 			Limits OptionalLimits
 		}
 	}
-	// Snapshot []SnapshotConfig
 	Snapshot []struct {
 		Directory string
 		Limits    OptionalLimits

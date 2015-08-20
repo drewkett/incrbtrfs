@@ -243,7 +243,7 @@ func runSnapshot(subvolume Subvolume, timestamp Timestamp) (err error) {
 		fmt.Printf("%s", output)
 	}
 	err = cleanUp(subvolume, timestamp)
-	// Handle Remotes w/ and w/o SSH
+	// TODO Handle Remotes w/ and w/o SSH
 	return
 }
 
