@@ -15,7 +15,7 @@ type SnapshotLoc struct {
 	Limits    Limits
 }
 
-func (snapshotLoc *SnapshotLoc) clean(interval Interval, now time.Time, timestamps []Timestamp) (keptTimestamps TimestampMap, err error) {
+func (snapshotLoc SnapshotLoc) clean(interval Interval, now time.Time, timestamps []Timestamp) (keptTimestamps TimestampMap, err error) {
 	dir := path.Join(snapshotLoc.Directory, string(interval))
 	err = os.MkdirAll(dir, os.ModeDir|0700)
 	if err != nil {
@@ -90,7 +90,7 @@ func (snapshotLoc SnapshotLoc) CleanUp(nowTimestamp Timestamp, timestamps []Time
 	}
 	return
 }
-func (snapshotLoc *SnapshotLoc) ReceiveSnapshot(timestamp Timestamp) (err error) {
+func (snapshotLoc SnapshotLoc) ReceiveSnapshot(timestamp Timestamp) (err error) {
 	targetPath := path.Join(snapshotLoc.Directory, "timestamp")
 	err = ReceiveSnapshot(targetPath)
 	if err != nil {
