@@ -18,22 +18,6 @@ import (
 
 //TODO make sure to delete failed send/receives
 //TODO add comments
-const btrfsBin string = "/sbin/btrfs"
-const subDir string = ".incrbtrfs"
-const timeFormat string = "20060102_150405"
-const version int = 2
-
-var Intervals = [...]string{"hourly", "daily", "weekly", "monthly"}
-var quietFlag = flag.Bool("quiet", false, "Quiet Mode")
-var verboseFlag = flag.Bool("verbose", false, "Verbose Mode")
-var receiveCheckFlag = flag.String("receiveCheck", "", "Receive Mode (Check)")
-var receiveFlag = flag.String("receive", "", "Receive Mode")
-var timestampFlag = flag.String("timestamp", "", "Timestamp for Receive Mode")
-var hourlyFlag = flag.Int("hourly", 0, "Hourly Limit")
-var dailyFlag = flag.Int("daily", 0, "Daily Limit")
-var weeklyFlag = flag.Int("weekly", 0, "Weekly Limit")
-var monthlyFlag = flag.Int("monthly", 0, "Monthly Limit")
-
 type Limits struct {
 	Hourly  int
 	Daily   int
@@ -41,9 +25,7 @@ type Limits struct {
 	Monthly int
 }
 
-func (l Limits) String() string {
-	return fmt.Sprintf("Hourly=%d, Daily=%d, Weekly=%d, Monthly=%d", l.Hourly, l.Daily, l.Weekly, l.Monthly)
-}
+type Interval string
 
 type SubvolumeRemote struct {
 	Host      string
@@ -59,13 +41,35 @@ type Subvolume struct {
 	Remotes           []SubvolumeRemote
 }
 
-// type Timestamp struct {
-// 	string string
-// 	time   time.Time
-// }
 type Timestamp string
 type Timestamps []Timestamp
 type TimestampMap map[Timestamp]bool
+
+const (
+	Hourly  Interval = "hourly"
+	Daily   Interval = "daily"
+	Weekly  Interval = "weekly"
+	Monthly Interval = "monthly"
+)
+const btrfsBin string = "/sbin/btrfs"
+const subDir string = ".incrbtrfs"
+const timeFormat string = "20060102_150405"
+const version int = 2
+
+var Intervals = [...]Interval{Hourly, Daily, Weekly, Monthly}
+var quietFlag = flag.Bool("quiet", false, "Quiet Mode")
+var verboseFlag = flag.Bool("verbose", false, "Verbose Mode")
+var receiveCheckFlag = flag.String("receiveCheck", "", "Receive Mode (Check)")
+var receiveFlag = flag.String("receive", "", "Receive Mode")
+var timestampFlag = flag.String("timestamp", "", "Timestamp for Receive Mode")
+var hourlyFlag = flag.Int("hourly", 0, "Hourly Limit")
+var dailyFlag = flag.Int("daily", 0, "Daily Limit")
+var weeklyFlag = flag.Int("weekly", 0, "Weekly Limit")
+var monthlyFlag = flag.Int("monthly", 0, "Monthly Limit")
+
+func (l Limits) String() string {
+	return fmt.Sprintf("Hourly=%d, Daily=%d, Weekly=%d, Monthly=%d", l.Hourly, l.Daily, l.Weekly, l.Monthly)
+}
 
 func (p Timestamps) Len() int           { return len(p) }
 func (p Timestamps) Less(i, j int) bool { return string(p[i]) < string(p[j]) }
@@ -131,27 +135,25 @@ func readTimestampsDir(snapshotsDir string) (timestamps []Timestamp, err error) 
 	return
 }
 
-func calcIndex(now time.Time, snapshotTime time.Time, interval string) (i int, err error) {
+func calcIndex(now time.Time, snapshotTime time.Time, interval Interval) int {
 	firstMonday := time.Date(1970, 1, 5, 0, 0, 0, 0, time.UTC)
 	switch interval {
-	case "hourly":
+	case Hourly:
 		now = now.Truncate(time.Hour)
 		snapshotTime = snapshotTime.Truncate(time.Hour)
-		i = int(now.Sub(snapshotTime).Hours())
-	case "daily":
+		return int(now.Sub(snapshotTime).Hours())
+	case Daily:
 		nowDays := int(now.Sub(firstMonday).Hours() / 24)
 		snapshotDays := int(snapshotTime.Sub(firstMonday).Hours() / 24)
-		i = nowDays - snapshotDays
-	case "weekly":
+		return nowDays - snapshotDays
+	case Weekly:
 		nowWeeks := int(now.Sub(firstMonday).Hours() / 24 / 7)
 		snapshotWeeks := int(snapshotTime.Sub(firstMonday).Hours() / 24 / 7)
-		i = nowWeeks - snapshotWeeks
-	case "monthly":
-		i = int(now.Month()) - int(snapshotTime.Month()) + 12*(now.Year()-snapshotTime.Year())
-	default:
-		err = fmt.Errorf("Invalid cleanup interval '%s'", interval)
+		return nowWeeks - snapshotWeeks
+	case Monthly:
+		return int(now.Month()) - int(snapshotTime.Month()) + 12*(now.Year()-snapshotTime.Year())
 	}
-	return
+	return 0
 }
 
 func removeAllSymlinks(dir string) (err error) {
@@ -170,8 +172,8 @@ func removeAllSymlinks(dir string) (err error) {
 	return
 }
 
-func (subvolume *Subvolume) clean(interval string, now time.Time, timestamps []Timestamp) (keptTimestamps TimestampMap, err error) {
-	dir := path.Join(subvolume.Directory, subDir, interval)
+func (subvolume *Subvolume) clean(interval Interval, now time.Time, timestamps []Timestamp) (keptTimestamps TimestampMap, err error) {
+	dir := path.Join(subvolume.Directory, subDir, string(interval))
 	err = os.MkdirAll(dir, os.ModeDir|0700)
 	if err != nil {
 		return
