@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path"
@@ -18,7 +18,7 @@ type Subvolume struct {
 }
 
 func (subvolume *Subvolume) Print() {
-	fmt.Printf("Snapshot Dir='%s' (%s)\n", subvolume.Directory, subvolume.Limits.String())
+	log.Printf("Snapshot Dir='%s' (%s)\n", subvolume.Directory, subvolume.Limits.String())
 	for _, remote := range subvolume.Remotes {
 		dst := remote.Directory
 		if remote.Host != "" {
@@ -27,7 +27,7 @@ func (subvolume *Subvolume) Print() {
 				dst = strings.Join([]string{remote.User, dst}, "@")
 			}
 		}
-		fmt.Printf("Remote Dir='%s' (%s)\n", dst, remote.Limits.String())
+		log.Printf("Remote Dir='%s' (%s)\n", dst, remote.Limits.String())
 	}
 
 }
@@ -64,7 +64,7 @@ func (subvolume *Subvolume) clean(interval Interval, now time.Time, timestamps [
 		src := path.Join("..", "timestamp", string(timestamp))
 		dst := path.Join(dir, strconv.Itoa(i))
 		if *verboseFlag {
-			fmt.Printf("Symlink '%s' => '%s'\n", dst, src)
+			log.Printf("Symlink '%s' => '%s'\n", dst, src)
 		}
 		err = os.Symlink(src, dst)
 		if err != nil {
@@ -99,7 +99,7 @@ func (subvolume *Subvolume) cleanUp(nowTimestamp Timestamp, timestamps []Timesta
 			output, err = btrfsCmd.CombinedOutput()
 			if err != nil {
 				if !(*quietFlag) {
-					fmt.Printf("%s", output)
+					log.Printf("%s", output)
 				}
 				return
 			}
