@@ -33,6 +33,7 @@ hourly = 0
 - `[[snapshot]]` indicates a new snapshot specification
 - `directory` specifies the subvolume to take a snapshot of. Snapshots are stored in `$directory/.incrbtrfs`
 - `[[snapshot.remote]]` specifies that the snapshot should be sent somewhere. `directory` specifies the location of the backup. Remote snapshot locations do not append the .incrbtrfs folder.
+  - `host`/`user` can be used to specify another machine to send the backups to. Communication is done with SSH. A copy of the incrbtrfs binary is required on the remote machine in order for this to work
 - `[snapshot.limits]` specifies how many snapshots to maintain for each time frame. These inherhit any limits specified in [defaults.limits].
 - `[snapshot.remote.limits]` specifies alternate settings for how many snapshots to keep at the remote destination
 
