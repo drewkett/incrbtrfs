@@ -32,20 +32,6 @@ func (subvolume *Subvolume) Print() {
 
 }
 
-func (subvolume *Subvolume) getMaxIndex(interval Interval) int {
-	switch interval {
-	case Hourly:
-		return subvolume.Limits.Hourly
-	case Daily:
-		return subvolume.Limits.Daily
-	case Weekly:
-		return subvolume.Limits.Weekly
-	case Monthly:
-		return subvolume.Limits.Monthly
-	}
-	return 0
-}
-
 func (subvolume *Subvolume) clean(interval Interval, now time.Time, timestamps []Timestamp) (keptTimestamps TimestampMap, err error) {
 	dir := path.Join(subvolume.SnapshotDirectory, string(interval))
 	err = os.MkdirAll(dir, os.ModeDir|0700)
@@ -56,7 +42,7 @@ func (subvolume *Subvolume) clean(interval Interval, now time.Time, timestamps [
 	if err != nil {
 		return
 	}
-	maxIndex := subvolume.getMaxIndex(interval)
+	maxIndex := interval.GetMaxIndex(subvolume.Limits)
 	keptIndices := make(map[int]bool)
 	keptTimestamps = make(TimestampMap)
 	for _, timestamp := range timestamps {
@@ -66,7 +52,7 @@ func (subvolume *Subvolume) clean(interval Interval, now time.Time, timestamps [
 		if err != nil {
 			continue
 		}
-		i = calcIndex(now, snapshotTime, interval)
+		i = interval.CalcIndex(now, snapshotTime)
 		if i >= maxIndex {
 			continue
 		}

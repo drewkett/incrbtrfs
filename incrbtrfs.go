@@ -19,8 +19,6 @@ import (
 //TODO make sure to delete failed send/receives
 //TODO add comments
 
-type Interval string
-
 type SubvolumeRemote struct {
 	Host      string
 	User      string
@@ -32,18 +30,11 @@ type Timestamp string
 type Timestamps []Timestamp
 type TimestampMap map[Timestamp]bool
 
-const (
-	Hourly  Interval = "hourly"
-	Daily   Interval = "daily"
-	Weekly  Interval = "weekly"
-	Monthly Interval = "monthly"
-)
 const btrfsBin string = "/sbin/btrfs"
 const subDir string = ".incrbtrfs"
 const timeFormat string = "20060102_150405"
 const version int = 2
 
-var Intervals = [...]Interval{Hourly, Daily, Weekly, Monthly}
 var quietFlag = flag.Bool("quiet", false, "Quiet Mode")
 var verboseFlag = flag.Bool("verbose", false, "Verbose Mode")
 var receiveCheckFlag = flag.String("receiveCheck", "", "Receive Mode (Check)")
@@ -82,27 +73,6 @@ func readTimestampsDir(snapshotsDir string) (timestamps []Timestamp, err error) 
 	}
 	err = nil
 	return
-}
-
-func calcIndex(now time.Time, snapshotTime time.Time, interval Interval) int {
-	firstMonday := time.Date(1970, 1, 5, 0, 0, 0, 0, time.UTC)
-	switch interval {
-	case Hourly:
-		now = now.Truncate(time.Hour)
-		snapshotTime = snapshotTime.Truncate(time.Hour)
-		return int(now.Sub(snapshotTime).Hours())
-	case Daily:
-		nowDays := int(now.Sub(firstMonday).Hours() / 24)
-		snapshotDays := int(snapshotTime.Sub(firstMonday).Hours() / 24)
-		return nowDays - snapshotDays
-	case Weekly:
-		nowWeeks := int(now.Sub(firstMonday).Hours() / 24 / 7)
-		snapshotWeeks := int(snapshotTime.Sub(firstMonday).Hours() / 24 / 7)
-		return nowWeeks - snapshotWeeks
-	case Monthly:
-		return int(now.Month()) - int(snapshotTime.Month()) + 12*(now.Year()-snapshotTime.Year())
-	}
-	return 0
 }
 
 func removeAllSymlinks(dir string) (err error) {
