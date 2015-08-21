@@ -53,7 +53,7 @@ func (subvolume *Subvolume) getMaxIndex(interval Interval) int {
 }
 
 func (subvolume *Subvolume) clean(interval Interval, now time.Time, timestamps []Timestamp) (keptTimestamps TimestampMap, err error) {
-	dir := path.Join(subvolume.Directory, subDir, string(interval))
+	dir := path.Join(subvolume.SnapshotDirectory, string(interval))
 	err = os.MkdirAll(dir, os.ModeDir|0700)
 	if err != nil {
 		return
@@ -99,7 +99,7 @@ func (subvolume *Subvolume) cleanUp(nowTimestamp Timestamp, timestamps []Timesta
 	if err != nil {
 		return
 	}
-	timestampsDir := path.Join(subvolume.Directory, subDir, "timestamp")
+	timestampsDir := path.Join(subvolume.SnapshotDirectory, "timestamp")
 	keptTimestamps := make(TimestampMap)
 	keptTimestamps[nowTimestamp] = true
 	var tempMap TimestampMap
