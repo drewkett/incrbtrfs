@@ -351,7 +351,12 @@ func sendSnapshot(snapshotPath string, remote SubvolumeRemote, parent Timestamp)
 	var receiveOut bytes.Buffer
 	var receiveCmd *exec.Cmd
 	if remote.Host == "" {
-		receiveCmd = exec.Command(btrfsBin, "receive", remote.Directory)
+		remoteTarget := path.Join(remote.Directory, "timestamp")
+		err = os.MkdirAll(remoteTarget, 0700|os.ModeDir)
+		if err != nil {
+			return
+		}
+		receiveCmd = exec.Command(btrfsBin, "receive", remoteTarget)
 		receiveCmd.Stdin = sendOut
 		receiveCmd.Stdout = &receiveOut
 		receiveCmd.Stderr = &receiveOut
