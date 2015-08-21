@@ -20,7 +20,7 @@ import (
 const btrfsBin string = "/sbin/btrfs"
 const subDir string = ".incrbtrfs"
 const timeFormat string = "20060102_150405"
-const version int = 1
+const version int = 2
 
 var Intervals = [...]string{"hourly", "daily", "weekly", "monthly"}
 var quietFlag = flag.Bool("quiet", false, "Quiet Mode")
@@ -52,9 +52,10 @@ type SubvolumeRemote struct {
 }
 
 type Subvolume struct {
-	Directory string
-	Limits    Limits
-	Remotes   []SubvolumeRemote
+	Directory         string
+	SnapshotDirectory string
+	Limits            Limits
+	Remotes           []SubvolumeRemote
 }
 
 // type Timestamp struct {
@@ -108,8 +109,8 @@ func parseTimestamp(timestamp Timestamp) (t time.Time, err error) {
 	return
 }
 
-func readTimestampDir(subvolumeDir string) (timestamps []Timestamp, err error) {
-	timestampsDir := path.Join(subvolumeDir, subDir, "timestamp")
+func readTimestampsDir(snapshotsDir string) (timestamps []Timestamp, err error) {
+	timestampsDir := path.Join(snapshotsDir, "timestamp")
 	fileInfos, err := ioutil.ReadDir(timestampsDir)
 	if err != nil {
 		return
@@ -269,14 +270,14 @@ func calcParent(localTimestamps []Timestamp, remoteTimestamps []Timestamp) Times
 }
 
 func receiveSnapshot(subvolume Subvolume, timestamp Timestamp) (err error) {
-	targetPath := path.Join(subvolume.Directory, subDir, "timestamp")
+	targetPath := path.Join(subvolume.SnapshotDirectory, "timestamp")
 	receiveCmd := exec.Command(btrfsBin, "receive", targetPath)
 	receiveCmd.Stdin = os.Stdin
 	receiveOut, err := receiveCmd.CombinedOutput()
 	if err != nil {
 		fmt.Print(receiveOut)
 	}
-	timestamps, err := readTimestampDir(subvolume.Directory)
+	timestamps, err := readTimestampsDir(subvolume.SnapshotDirectory)
 	if err != nil {
 		return
 	}
@@ -442,7 +443,7 @@ func runSnapshot(subvolume Subvolume, timestamp Timestamp) (err error) {
 		fmt.Printf("%s", output)
 	}
 
-	timestamps, err := readTimestampDir(subvolume.Directory)
+	timestamps, err := readTimestampsDir(subvolume.SnapshotDirectory)
 	if err != nil {
 		return
 	}
@@ -454,7 +455,7 @@ func runSnapshot(subvolume Subvolume, timestamp Timestamp) (err error) {
 	for _, remote := range subvolume.Remotes {
 		var remoteTimestamps []Timestamp
 		if remote.Host == "" {
-			remoteTimestamps, err = readTimestampDir(subvolume.Directory)
+			remoteTimestamps, err = readTimestampsDir(remote.Directory)
 			if err != nil {
 				fmt.Println(err.Error())
 				err = nil
@@ -469,7 +470,9 @@ func runSnapshot(subvolume Subvolume, timestamp Timestamp) (err error) {
 			}
 		}
 		parentTimestamp := calcParent(timestamps, remoteTimestamps)
-		fmt.Printf("Parent = %s\n", string(parentTimestamp))
+		if *verboseFlag && parentTimestamp != "" {
+			fmt.Printf("Parent = %s\n", string(parentTimestamp))
+		}
 		err = sendSnapshot(targetPath, remote, parentTimestamp)
 		if err != nil {
 			fmt.Println("Error sending snapshot")
@@ -492,7 +495,12 @@ type RemoteCheck struct {
 }
 
 func runRemoteCheck() {
-	timestampsDir := path.Join(*receiveCheckFlag, subDir, "timestamp")
+	timestampsDir := path.Join(*receiveCheckFlag, "timestamp")
+	err := os.MkdirAll(timestampsDir, 0700|os.ModeDir)
+	if err != nil {
+		fmt.Print(err.Error())
+		os.Exit(1)
+	}
 	fis, err := ioutil.ReadDir(timestampsDir)
 	if err != nil {
 		fmt.Print(err.Error())
@@ -530,6 +538,7 @@ func runRemote() {
 	}
 	var subvolume Subvolume
 	subvolume.Directory = *receiveFlag
+	subvolume.SnapshotDirectory = *receiveFlag
 	subvolume.Limits = Limits{
 		Hourly:  *hourlyFlag,
 		Daily:   *dailyFlag,

@@ -1,6 +1,10 @@
 package main
 
-import "github.com/BurntSushi/toml"
+import (
+	"path"
+
+	"github.com/BurntSushi/toml"
+)
 
 type OptionalLimits struct {
 	Hourly  *int
@@ -40,6 +44,7 @@ func parseConfig(config Config) (subvolumes []Subvolume) {
 	for _, snapshot := range config.Snapshot {
 		var subvolume Subvolume
 		subvolume.Directory = snapshot.Directory
+		subvolume.SnapshotDirectory = path.Join(subvolume.Directory, subDir)
 		subvolume.Limits = combineLimits(localDefaults, snapshot.Limits)
 		for _, remote := range snapshot.Remote {
 			var subvolumeRemote SubvolumeRemote
