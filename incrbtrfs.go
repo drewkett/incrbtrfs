@@ -75,27 +75,6 @@ func sendSnapshot(snapshotPath string, remote RemoteSnapshotLoc, parent Timestam
 		if remote.User != "" {
 			sshPath = remote.User + "@" + sshPath
 		}
-		// var receiveCheckOut []byte
-		// var receiveCheckErr bytes.Buffer
-		// receiveCheckCmd := exec.Command("ssh", sshPath, "incrbtrfs", "-receiveCheck", remote.Directory)
-		// receiveCheckCmd.Stderr = &receiveCheckErr
-		// receiveCheckOut, err = receiveCheckCmd.Output()
-		// if err != nil {
-		// 	log.Println("Failed to run ReceiveCheck")
-		// 	log.Println(string(receiveCheckOut))
-		// 	log.Println(receiveCheckErr.String())
-		// 	return
-		// }
-		// var checkStr RemoteCheck
-		// err = json.Unmarshal(receiveCheckOut, &checkStr)
-		// if err != nil {
-		// 	log.Println("Failed to read ReceiveCheck JSON")
-		// 	return
-		// }
-		// if checkStr.Version != version {
-		// 	err = log.Errorf("Incompatible Version Local (%d) != Remote (%d)", version, checkStr.Version)
-		// 	return
-		// }
 		receiveArgs := []string{sshPath, "incrbtrfs", "-receive", remote.SnapshotLoc.Directory, "-timestamp", path.Base(snapshotPath)}
 		log.Println(remote.SnapshotLoc.Limits.String())
 		if remote.SnapshotLoc.Limits.Hourly > 0 {
