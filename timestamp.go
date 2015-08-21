@@ -1,9 +1,6 @@
 package main
 
 import (
-	"io/ioutil"
-	"os"
-	"path"
 	"sort"
 	"time"
 )
@@ -25,26 +22,6 @@ func (tm TimestampMap) Merge(other TimestampMap) TimestampMap {
 
 func parseTimestamp(timestamp Timestamp) (t time.Time, err error) {
 	t, err = time.ParseInLocation(timeFormat, string(timestamp), time.Local)
-	return
-}
-func readTimestampsDir(snapshotsDir string) (timestamps []Timestamp, err error) {
-	timestampsDir := path.Join(snapshotsDir, "timestamp")
-	os.MkdirAll(timestampsDir, 0700|os.ModeDir)
-	fileInfos, err := ioutil.ReadDir(timestampsDir)
-	if err != nil {
-		return
-	}
-	for _, fi := range fileInfos {
-		if fi.IsDir() {
-			timestamp := Timestamp(fi.Name())
-			_, err := parseTimestamp(timestamp)
-			if err != nil {
-				continue
-			}
-			timestamps = append(timestamps, timestamp)
-		}
-	}
-	err = nil
 	return
 }
 

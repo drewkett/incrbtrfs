@@ -44,14 +44,16 @@ func parseConfig(config Config) (subvolumes []Subvolume) {
 	for _, snapshot := range config.Snapshot {
 		var subvolume Subvolume
 		subvolume.Directory = snapshot.Directory
-		subvolume.SnapshotDirectory = path.Join(subvolume.Directory, subDir)
-		subvolume.Limits = localDefaults.Merge(snapshot.Limits)
+		subvolume.SnapshotLoc = SnapshotLoc{
+			Directory: path.Join(subvolume.Directory, subDir),
+			Limits:    localDefaults.Merge(snapshot.Limits)}
 		for _, remote := range snapshot.Remote {
 			var subvolumeRemote SubvolumeRemote
 			subvolumeRemote.User = remote.User
 			subvolumeRemote.Host = remote.Host
-			subvolumeRemote.Directory = remote.Directory
-			subvolumeRemote.Limits = remoteDefaults.Merge(snapshot.Limits, remote.Limits)
+			subvolumeRemote.SnapshotLoc = SnapshotLoc{
+				Directory: remote.Directory,
+				Limits:    remoteDefaults.Merge(snapshot.Limits, remote.Limits)}
 			subvolume.Remotes = append(subvolume.Remotes, subvolumeRemote)
 		}
 		subvolumes = append(subvolumes, subvolume)

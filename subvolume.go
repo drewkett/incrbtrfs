@@ -5,122 +5,99 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"strconv"
 	"strings"
-	"time"
 )
 
 type Subvolume struct {
-	Directory         string
-	SnapshotDirectory string
-	Limits            Limits
-	Remotes           []SubvolumeRemote
+	Directory   string
+	SnapshotLoc SnapshotLoc
+	Remotes     []SubvolumeRemote
+}
+
+type SubvolumeRemote struct {
+	Host        string
+	User        string
+	SnapshotLoc SnapshotLoc
 }
 
 func (subvolume *Subvolume) Print() {
-	log.Printf("Snapshot Dir='%s' (%s)\n", subvolume.Directory, subvolume.Limits.String())
+	log.Printf("Subvolume='%s'", subvolume.Directory)
+	log.Printf("Snapshot Dir='%s' (%s)\n", subvolume.SnapshotLoc.Directory, subvolume.SnapshotLoc.Limits.String())
 	for _, remote := range subvolume.Remotes {
-		dst := remote.Directory
+		dst := remote.SnapshotLoc.Directory
 		if remote.Host != "" {
 			dst = strings.Join([]string{remote.Host, dst}, ":")
 			if remote.User != "" {
 				dst = strings.Join([]string{remote.User, dst}, "@")
 			}
 		}
-		log.Printf("Remote Dir='%s' (%s)\n", dst, remote.Limits.String())
+		log.Printf("Remote Dir='%s' (%s)\n", dst, remote.SnapshotLoc.Limits.String())
 	}
 
 }
 
-func (subvolume *Subvolume) clean(interval Interval, now time.Time, timestamps []Timestamp) (keptTimestamps TimestampMap, err error) {
-	dir := path.Join(subvolume.SnapshotDirectory, string(interval))
-	err = os.MkdirAll(dir, os.ModeDir|0700)
+func (subvolume *Subvolume) RunSnapshot(timestamp Timestamp) (err error) {
+	targetPath := path.Join(subvolume.SnapshotLoc.Directory, "timestamp", string(timestamp))
+	btrfsCmd := exec.Command(btrfsBin, "subvolume", "snapshot", "-r", subvolume.Directory, targetPath)
+	if *verboseFlag {
+		printCommand(btrfsCmd)
+	}
+	output, err := btrfsCmd.CombinedOutput()
 	if err != nil {
-		return
-	}
-	err = removeAllSymlinks(dir)
-	if err != nil {
-		return
-	}
-	maxIndex := interval.GetMaxIndex(subvolume.Limits)
-	keptIndices := make(map[int]bool)
-	keptTimestamps = make(TimestampMap)
-	for _, timestamp := range timestamps {
-		var i int
-		var snapshotTime time.Time
-		snapshotTime, err = parseTimestamp(timestamp)
-		if err != nil {
-			continue
+		if !(*quietFlag) {
+			log.Printf("%s", output)
 		}
-		i = interval.CalcIndex(now, snapshotTime)
-		if i >= maxIndex {
-			continue
-		}
-		if _, ok := keptIndices[i]; ok {
-			continue
-		}
-		keptIndices[i] = true
-		keptTimestamps[timestamp] = true
-		src := path.Join("..", "timestamp", string(timestamp))
-		dst := path.Join(dir, strconv.Itoa(i))
-		if *verboseFlag {
-			log.Printf("Symlink '%s' => '%s'\n", dst, src)
-		}
-		err = os.Symlink(src, dst)
-		if err != nil {
-			return
-		}
-	}
-	return
-}
-
-func (subvolume *Subvolume) cleanUp(nowTimestamp Timestamp, timestamps []Timestamp) (err error) {
-	now, err := parseTimestamp(nowTimestamp)
-	if err != nil {
-		return
-	}
-	timestampsDir := path.Join(subvolume.SnapshotDirectory, "timestamp")
-	keptTimestamps := make(TimestampMap)
-	keptTimestamps[nowTimestamp] = true
-	var tempMap TimestampMap
-	for _, interval := range Intervals {
-		tempMap, err = subvolume.clean(interval, now, timestamps)
-		if err != nil {
-			return
-		}
-		keptTimestamps = keptTimestamps.Merge(tempMap)
-	}
-	// Remove unneeded timestamps
-	for _, timestamp := range timestamps {
-		if _, ok := keptTimestamps[timestamp]; !ok {
-			var output []byte
-			timestampLoc := path.Join(timestampsDir, string(timestamp))
-			btrfsCmd := exec.Command(btrfsBin, "subvolume", "delete", timestampLoc)
-			output, err = btrfsCmd.CombinedOutput()
-			if err != nil {
+		if _, errTmp := os.Stat(targetPath); !os.IsNotExist(errTmp) {
+			errTmp = DeleteSnapshot(targetPath)
+			if errTmp != nil {
 				if !(*quietFlag) {
-					log.Printf("%s", output)
+					log.Println("Failed to deleted to failed snapshot")
 				}
-				return
 			}
 		}
+		return
 	}
-	return
-}
+	if *verboseFlag {
+		log.Printf("%s", output)
+	}
 
-func (subvolume *Subvolume) receiveSnapshot(timestamp Timestamp) (err error) {
-	targetPath := path.Join(subvolume.SnapshotDirectory, "timestamp")
-	err = ReceiveSnapshot(targetPath)
+	timestamps, err := subvolume.SnapshotLoc.ReadTimestampsDir()
 	if err != nil {
 		return
 	}
-	timestamps, err := readTimestampsDir(subvolume.SnapshotDirectory)
+	err = subvolume.SnapshotLoc.CleanUp(timestamp, timestamps)
 	if err != nil {
 		return
 	}
-	err = subvolume.cleanUp(timestamp, timestamps)
-	if err != nil {
-		return
+
+	for _, remote := range subvolume.Remotes {
+		var remoteTimestamps []Timestamp
+		if remote.Host == "" {
+			remoteTimestamps, err = remote.SnapshotLoc.ReadTimestampsDir()
+			if err != nil {
+				log.Println(err.Error())
+				err = nil
+				continue
+			}
+		} else {
+			remoteTimestamps, err = getRemoteTimestamps(remote)
+			if err != nil {
+				log.Println(err.Error())
+				err = nil
+				continue
+			}
+		}
+		parentTimestamp := calcParent(timestamps, remoteTimestamps)
+		if *verboseFlag && parentTimestamp != "" {
+			log.Printf("Parent = %s\n", string(parentTimestamp))
+		}
+		err = sendSnapshot(targetPath, remote, parentTimestamp)
+		if err != nil {
+			log.Println("Error sending snapshot")
+			log.Println(err.Error())
+			err = nil
+			continue
+		}
 	}
 	return
 }

@@ -19,13 +19,6 @@ import (
 //TODO make sure to delete failed send/receives
 //TODO add comments
 
-type SubvolumeRemote struct {
-	Host      string
-	User      string
-	Directory string
-	Limits    Limits
-}
-
 const btrfsBin string = "/sbin/btrfs"
 const subDir string = ".incrbtrfs"
 const timeFormat string = "20060102_150405"
@@ -68,7 +61,7 @@ func getRemoteTimestamps(remote SubvolumeRemote) (timestamps []Timestamp, err er
 	}
 	var receiveCheckOut []byte
 	var receiveCheckErr bytes.Buffer
-	receiveCheckCmd := exec.Command("ssh", sshPath, "incrbtrfs", "-receiveCheck", remote.Directory)
+	receiveCheckCmd := exec.Command("ssh", sshPath, "incrbtrfs", "-receiveCheck", remote.SnapshotLoc.Directory)
 	receiveCheckCmd.Stderr = &receiveCheckErr
 	receiveCheckOut, err = receiveCheckCmd.Output()
 	if err != nil {
@@ -123,7 +116,7 @@ func sendSnapshot(snapshotPath string, remote SubvolumeRemote, parent Timestamp)
 	var receiveOut bytes.Buffer
 	var receiveCmd *exec.Cmd
 	if remote.Host == "" {
-		remoteTarget := path.Join(remote.Directory, "timestamp")
+		remoteTarget := path.Join(remote.SnapshotLoc.Directory, "timestamp")
 		err = os.MkdirAll(remoteTarget, 0700|os.ModeDir)
 		if err != nil {
 			return
@@ -158,19 +151,19 @@ func sendSnapshot(snapshotPath string, remote SubvolumeRemote, parent Timestamp)
 		// 	err = log.Errorf("Incompatible Version Local (%d) != Remote (%d)", version, checkStr.Version)
 		// 	return
 		// }
-		receiveArgs := []string{sshPath, "incrbtrfs", "-receive", remote.Directory, "-timestamp", path.Base(snapshotPath)}
-		log.Println(remote.Limits.String())
-		if remote.Limits.Hourly > 0 {
-			receiveArgs = append(receiveArgs, "-hourly", strconv.Itoa(remote.Limits.Hourly))
+		receiveArgs := []string{sshPath, "incrbtrfs", "-receive", remote.SnapshotLoc.Directory, "-timestamp", path.Base(snapshotPath)}
+		log.Println(remote.SnapshotLoc.Limits.String())
+		if remote.SnapshotLoc.Limits.Hourly > 0 {
+			receiveArgs = append(receiveArgs, "-hourly", strconv.Itoa(remote.SnapshotLoc.Limits.Hourly))
 		}
-		if remote.Limits.Daily > 0 {
-			receiveArgs = append(receiveArgs, "-daily", strconv.Itoa(remote.Limits.Daily))
+		if remote.SnapshotLoc.Limits.Daily > 0 {
+			receiveArgs = append(receiveArgs, "-daily", strconv.Itoa(remote.SnapshotLoc.Limits.Daily))
 		}
-		if remote.Limits.Weekly > 0 {
-			receiveArgs = append(receiveArgs, "-weekly", strconv.Itoa(remote.Limits.Weekly))
+		if remote.SnapshotLoc.Limits.Weekly > 0 {
+			receiveArgs = append(receiveArgs, "-weekly", strconv.Itoa(remote.SnapshotLoc.Limits.Weekly))
 		}
-		if remote.Limits.Monthly > 0 {
-			receiveArgs = append(receiveArgs, "-monthly", strconv.Itoa(remote.Limits.Monthly))
+		if remote.SnapshotLoc.Limits.Monthly > 0 {
+			receiveArgs = append(receiveArgs, "-monthly", strconv.Itoa(remote.SnapshotLoc.Limits.Monthly))
 		}
 		receiveCmd = exec.Command("ssh", receiveArgs...)
 		receiveCmd.Stdin = sendOut
@@ -200,72 +193,6 @@ func sendSnapshot(snapshotPath string, remote SubvolumeRemote, parent Timestamp)
 		log.Println("Error with btrfs receive")
 		log.Print(receiveOut.String())
 		return
-	}
-	return
-}
-
-func (subvolume *Subvolume) runSnapshot(timestamp Timestamp) (err error) {
-	targetPath := path.Join(subvolume.SnapshotDirectory, "timestamp", string(timestamp))
-	btrfsCmd := exec.Command(btrfsBin, "subvolume", "snapshot", "-r", subvolume.Directory, targetPath)
-	if *verboseFlag {
-		printCommand(btrfsCmd)
-	}
-	output, err := btrfsCmd.CombinedOutput()
-	if err != nil {
-		if !(*quietFlag) {
-			log.Printf("%s", output)
-		}
-		if _, errTmp := os.Stat(targetPath); !os.IsNotExist(errTmp) {
-			errTmp = DeleteSnapshot(targetPath)
-			if errTmp != nil {
-				if !(*quietFlag) {
-					log.Println("Failed to deleted to failed snapshot")
-				}
-			}
-		}
-		return
-	}
-	if *verboseFlag {
-		log.Printf("%s", output)
-	}
-
-	timestamps, err := readTimestampsDir(subvolume.SnapshotDirectory)
-	if err != nil {
-		return
-	}
-	err = subvolume.cleanUp(timestamp, timestamps)
-	if err != nil {
-		return
-	}
-
-	for _, remote := range subvolume.Remotes {
-		var remoteTimestamps []Timestamp
-		if remote.Host == "" {
-			remoteTimestamps, err = readTimestampsDir(remote.Directory)
-			if err != nil {
-				log.Println(err.Error())
-				err = nil
-				continue
-			}
-		} else {
-			remoteTimestamps, err = getRemoteTimestamps(remote)
-			if err != nil {
-				log.Println(err.Error())
-				err = nil
-				continue
-			}
-		}
-		parentTimestamp := calcParent(timestamps, remoteTimestamps)
-		if *verboseFlag && parentTimestamp != "" {
-			log.Printf("Parent = %s\n", string(parentTimestamp))
-		}
-		err = sendSnapshot(targetPath, remote, parentTimestamp)
-		if err != nil {
-			log.Println("Error sending snapshot")
-			log.Println(err.Error())
-			err = nil
-			continue
-		}
 	}
 	return
 }
@@ -322,10 +249,9 @@ func runRemote() {
 		log.Println("Must specify timestamp in receive mode")
 		os.Exit(1)
 	}
-	var subvolume Subvolume
-	subvolume.Directory = *receiveFlag
-	subvolume.SnapshotDirectory = *receiveFlag
-	subvolume.Limits = Limits{
+	var snapshotLoc SnapshotLoc
+	snapshotLoc.Directory = *receiveFlag
+	snapshotLoc.Limits = Limits{
 		Hourly:  *hourlyFlag,
 		Daily:   *dailyFlag,
 		Weekly:  *weeklyFlag,
@@ -336,7 +262,7 @@ func runRemote() {
 		log.Println(err.Error())
 		os.Exit(1)
 	}
-	err = subvolume.receiveSnapshot(timestamp)
+	err = snapshotLoc.ReceiveSnapshot(timestamp)
 	if err != nil {
 		log.Println(err.Error())
 		os.Exit(1)
@@ -361,7 +287,7 @@ func runLocal() {
 		if !(*quietFlag) {
 			subvolume.Print()
 		}
-		err = subvolume.runSnapshot(currentTimestamp)
+		err = subvolume.RunSnapshot(currentTimestamp)
 		if err != nil {
 			log.Println(err)
 			isErr = true
