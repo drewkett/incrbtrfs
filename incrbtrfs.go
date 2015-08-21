@@ -170,7 +170,7 @@ func removeAllSymlinks(dir string) (err error) {
 	return
 }
 
-func clean(subvolume Subvolume, interval string, now time.Time, timestamps []Timestamp) (keptTimestamps TimestampMap, err error) {
+func (subvolume *Subvolume) clean(interval string, now time.Time, timestamps []Timestamp) (keptTimestamps TimestampMap, err error) {
 	dir := path.Join(subvolume.Directory, subDir, interval)
 	err = os.MkdirAll(dir, os.ModeDir|0700)
 	if err != nil {
@@ -219,7 +219,7 @@ func (tm *TimestampMap) Merge(other TimestampMap) {
 	}
 }
 
-func cleanUp(subvolume Subvolume, nowTimestamp Timestamp, timestamps []Timestamp) (err error) {
+func (subvolume *Subvolume) cleanUp(nowTimestamp Timestamp, timestamps []Timestamp) (err error) {
 	now, err := parseTimestamp(nowTimestamp)
 	if err != nil {
 		return
@@ -229,7 +229,7 @@ func cleanUp(subvolume Subvolume, nowTimestamp Timestamp, timestamps []Timestamp
 	keptTimestamps[nowTimestamp] = true
 	var tempMap TimestampMap
 	for _, interval := range Intervals {
-		tempMap, err = clean(subvolume, interval, now, timestamps)
+		tempMap, err = subvolume.clean(interval, now, timestamps)
 		if err != nil {
 			return
 		}
@@ -271,7 +271,7 @@ func calcParent(localTimestamps []Timestamp, remoteTimestamps []Timestamp) Times
 	return ""
 }
 
-func receiveSnapshot(subvolume Subvolume, timestamp Timestamp) (err error) {
+func (subvolume *Subvolume) receiveSnapshot(timestamp Timestamp) (err error) {
 	targetPath := path.Join(subvolume.SnapshotDirectory, "timestamp")
 	receiveCmd := exec.Command(btrfsBin, "receive", targetPath)
 	receiveCmd.Stdin = os.Stdin
@@ -283,7 +283,7 @@ func receiveSnapshot(subvolume Subvolume, timestamp Timestamp) (err error) {
 	if err != nil {
 		return
 	}
-	err = cleanUp(subvolume, timestamp, timestamps)
+	err = subvolume.cleanUp(timestamp, timestamps)
 	if err != nil {
 		return
 	}
@@ -433,7 +433,7 @@ func sendSnapshot(snapshotPath string, remote SubvolumeRemote, parent Timestamp)
 	return
 }
 
-func runSnapshot(subvolume Subvolume, timestamp Timestamp) (err error) {
+func (subvolume *Subvolume) runSnapshot(timestamp Timestamp) (err error) {
 	targetPath := path.Join(subvolume.Directory, subDir, "timestamp", string(timestamp))
 	btrfsCmd := exec.Command(btrfsBin, "subvolume", "snapshot", "-r", subvolume.Directory, targetPath)
 	if *verboseFlag {
@@ -454,7 +454,7 @@ func runSnapshot(subvolume Subvolume, timestamp Timestamp) (err error) {
 	if err != nil {
 		return
 	}
-	err = cleanUp(subvolume, timestamp, timestamps)
+	err = subvolume.cleanUp(timestamp, timestamps)
 	if err != nil {
 		return
 	}
@@ -557,7 +557,7 @@ func runRemote() {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
-	err = receiveSnapshot(subvolume, timestamp)
+	err = subvolume.receiveSnapshot(timestamp)
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
@@ -582,7 +582,7 @@ func runLocal() {
 		if !(*quietFlag) {
 			subvolume.Print()
 		}
-		err = runSnapshot(subvolume, currentTimestamp)
+		err = subvolume.runSnapshot(currentTimestamp)
 		if err != nil {
 			fmt.Println(err)
 			isErr = true
