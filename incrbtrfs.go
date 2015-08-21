@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -59,20 +58,6 @@ func removeAllSymlinks(dir string) (err error) {
 
 func printCommand(cmd *exec.Cmd) {
 	fmt.Printf("Running '%s %s'\n", cmd.Path, strings.Join(cmd.Args[1:], " "))
-}
-
-func calcParent(localTimestamps []Timestamp, remoteTimestamps []Timestamp) Timestamp {
-	timestampMap := make(TimestampMap)
-	for _, timestamp := range localTimestamps {
-		timestampMap[timestamp] = true
-	}
-	sort.Sort(sort.Reverse(Timestamps(remoteTimestamps)))
-	for _, remoteTimestamp := range remoteTimestamps {
-		if _, ok := timestampMap[remoteTimestamp]; ok {
-			return remoteTimestamp
-		}
-	}
-	return ""
 }
 
 func getRemoteTimestamps(remote SubvolumeRemote) (timestamps []Timestamp, err error) {

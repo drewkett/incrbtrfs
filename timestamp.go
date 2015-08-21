@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"sort"
 	"time"
 )
 
@@ -45,4 +46,18 @@ func readTimestampsDir(snapshotsDir string) (timestamps []Timestamp, err error) 
 	}
 	err = nil
 	return
+}
+
+func calcParent(localTimestamps []Timestamp, remoteTimestamps []Timestamp) Timestamp {
+	timestampMap := make(TimestampMap)
+	for _, timestamp := range localTimestamps {
+		timestampMap[timestamp] = true
+	}
+	sort.Sort(sort.Reverse(Timestamps(remoteTimestamps)))
+	for _, remoteTimestamp := range remoteTimestamps {
+		if _, ok := timestampMap[remoteTimestamp]; ok {
+			return remoteTimestamp
+		}
+	}
+	return ""
 }
