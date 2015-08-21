@@ -88,7 +88,7 @@ func (subvolume *Subvolume) cleanUp(nowTimestamp Timestamp, timestamps []Timesta
 		if err != nil {
 			return
 		}
-		keptTimestamps.Merge(tempMap)
+		keptTimestamps = keptTimestamps.Merge(tempMap)
 	}
 	// Remove unneeded timestamps
 	for _, timestamp := range timestamps {

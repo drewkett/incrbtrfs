@@ -26,10 +26,6 @@ type SubvolumeRemote struct {
 	Limits    Limits
 }
 
-type Timestamp string
-type Timestamps []Timestamp
-type TimestampMap map[Timestamp]bool
-
 const btrfsBin string = "/sbin/btrfs"
 const subDir string = ".incrbtrfs"
 const timeFormat string = "20060102_150405"
@@ -45,36 +41,6 @@ var dailyFlag = flag.Int("daily", 0, "Daily Limit")
 var weeklyFlag = flag.Int("weekly", 0, "Weekly Limit")
 var monthlyFlag = flag.Int("monthly", 0, "Monthly Limit")
 
-func (p Timestamps) Len() int           { return len(p) }
-func (p Timestamps) Less(i, j int) bool { return string(p[i]) < string(p[j]) }
-func (p Timestamps) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
-
-func parseTimestamp(timestamp Timestamp) (t time.Time, err error) {
-	t, err = time.ParseInLocation(timeFormat, string(timestamp), time.Local)
-	return
-}
-
-func readTimestampsDir(snapshotsDir string) (timestamps []Timestamp, err error) {
-	timestampsDir := path.Join(snapshotsDir, "timestamp")
-	os.MkdirAll(timestampsDir, 0700|os.ModeDir)
-	fileInfos, err := ioutil.ReadDir(timestampsDir)
-	if err != nil {
-		return
-	}
-	for _, fi := range fileInfos {
-		if fi.IsDir() {
-			timestamp := Timestamp(fi.Name())
-			_, err := parseTimestamp(timestamp)
-			if err != nil {
-				continue
-			}
-			timestamps = append(timestamps, timestamp)
-		}
-	}
-	err = nil
-	return
-}
-
 func removeAllSymlinks(dir string) (err error) {
 	fileInfos, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -89,12 +55,6 @@ func removeAllSymlinks(dir string) (err error) {
 		}
 	}
 	return
-}
-
-func (tm *TimestampMap) Merge(other TimestampMap) {
-	for key, _ := range other {
-		(*tm)[key] = true
-	}
 }
 
 func printCommand(cmd *exec.Cmd) {
