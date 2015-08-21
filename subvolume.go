@@ -11,13 +11,7 @@ import (
 type Subvolume struct {
 	Directory   string
 	SnapshotLoc SnapshotLoc
-	Remotes     []SubvolumeRemote
-}
-
-type SubvolumeRemote struct {
-	Host        string
-	User        string
-	SnapshotLoc SnapshotLoc
+	Remotes     []RemoteSnapshotLoc
 }
 
 func (subvolume *Subvolume) Print() {
@@ -80,7 +74,7 @@ func (subvolume *Subvolume) RunSnapshot(timestamp Timestamp) (err error) {
 				continue
 			}
 		} else {
-			remoteTimestamps, err = getRemoteTimestamps(remote)
+			remoteTimestamps, err = remote.GetTimestamps()
 			if err != nil {
 				log.Println(err.Error())
 				err = nil
