@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/exec"
 	"path"
@@ -593,7 +594,18 @@ func runLocal() {
 
 }
 
+func getLock() (err error) {
+	_, err = net.Listen("unix", "@incrbtrfs")
+	return
+}
+
 func main() {
+	err := getLock()
+	if err != nil {
+		fmt.Println("Error acquiring local lock")
+		os.Exit(1)
+	}
+
 	flag.Parse()
 	if *receiveCheckFlag != "" {
 		runRemoteCheck()
