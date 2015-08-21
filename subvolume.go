@@ -115,6 +115,15 @@ func (subvolume *Subvolume) receiveSnapshot(timestamp Timestamp) (err error) {
 	receiveOut, err := receiveCmd.CombinedOutput()
 	if err != nil {
 		fmt.Print(receiveOut)
+		if _, errTmp := os.Stat(targetPath); !os.IsNotExist(errTmp) {
+			errTmp = DeleteSnapshot(targetPath)
+			if errTmp != nil {
+				if !(*quietFlag) {
+					fmt.Println("Failed to deleted to failed snapshot")
+				}
+			}
+		}
+		return
 	}
 	timestamps, err := readTimestampsDir(subvolume.SnapshotDirectory)
 	if err != nil {

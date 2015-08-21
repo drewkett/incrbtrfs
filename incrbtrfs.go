@@ -214,6 +214,14 @@ func (subvolume *Subvolume) runSnapshot(timestamp Timestamp) (err error) {
 		if !(*quietFlag) {
 			fmt.Printf("%s", output)
 		}
+		if _, errTmp := os.Stat(targetPath); !os.IsNotExist(errTmp) {
+			errTmp = DeleteSnapshot(targetPath)
+			if errTmp != nil {
+				if !(*quietFlag) {
+					fmt.Println("Failed to deleted to failed snapshot")
+				}
+			}
+		}
 		return
 	}
 	if *verboseFlag {
