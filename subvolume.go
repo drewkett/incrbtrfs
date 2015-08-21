@@ -14,7 +14,7 @@ type Subvolume struct {
 	Remotes     []RemoteSnapshotLoc
 }
 
-func (subvolume *Subvolume) Print() {
+func (subvolume Subvolume) Print() {
 	log.Printf("Subvolume='%s'", subvolume.Directory)
 	log.Printf("Snapshot Dir='%s' (%s)\n", subvolume.SnapshotLoc.Directory, subvolume.SnapshotLoc.Limits.String())
 	for _, remote := range subvolume.Remotes {
@@ -30,7 +30,7 @@ func (subvolume *Subvolume) Print() {
 
 }
 
-func (subvolume *Subvolume) RunSnapshot(timestamp Timestamp) (err error) {
+func (subvolume Subvolume) RunSnapshot(timestamp Timestamp) (err error) {
 	targetPath := path.Join(subvolume.SnapshotLoc.Directory, "timestamp", string(timestamp))
 	btrfsCmd := exec.Command(btrfsBin, "subvolume", "snapshot", "-r", subvolume.Directory, targetPath)
 	if *verboseFlag {
