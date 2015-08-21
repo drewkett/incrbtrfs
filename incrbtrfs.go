@@ -172,6 +172,20 @@ func removeAllSymlinks(dir string) (err error) {
 	return
 }
 
+func (subvolume *Subvolume) getMaxIndex(interval Interval) int {
+	switch interval {
+	case Hourly:
+		return subvolume.Limits.Hourly
+	case Daily:
+		return subvolume.Limits.Daily
+	case Weekly:
+		return subvolume.Limits.Weekly
+	case Monthly:
+		return subvolume.Limits.Monthly
+	}
+	return 0
+}
+
 func (subvolume *Subvolume) clean(interval Interval, now time.Time, timestamps []Timestamp) (keptTimestamps TimestampMap, err error) {
 	dir := path.Join(subvolume.Directory, subDir, string(interval))
 	err = os.MkdirAll(dir, os.ModeDir|0700)
@@ -182,6 +196,7 @@ func (subvolume *Subvolume) clean(interval Interval, now time.Time, timestamps [
 	if err != nil {
 		return
 	}
+	maxIndex := subvolume.getMaxIndex(interval)
 	keptIndices := make(map[int]bool)
 	keptTimestamps = make(TimestampMap)
 	for _, timestamp := range timestamps {
@@ -191,10 +206,8 @@ func (subvolume *Subvolume) clean(interval Interval, now time.Time, timestamps [
 		if err != nil {
 			continue
 		}
-		i, err = calcIndex(now, snapshotTime, interval)
-		if err != nil {
-			fmt.Println(err.Error())
-			err = nil
+		i = calcIndex(now, snapshotTime, interval)
+		if i >= maxIndex {
 			continue
 		}
 		if _, ok := keptIndices[i]; ok {
