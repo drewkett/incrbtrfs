@@ -54,32 +54,9 @@ var dailyFlag = flag.Int("daily", 0, "Daily Limit")
 var weeklyFlag = flag.Int("weekly", 0, "Weekly Limit")
 var monthlyFlag = flag.Int("monthly", 0, "Monthly Limit")
 
-func (l Limits) String() string {
-	return fmt.Sprintf("Hourly=%d, Daily=%d, Weekly=%d, Monthly=%d", l.Hourly, l.Daily, l.Weekly, l.Monthly)
-}
-
 func (p Timestamps) Len() int           { return len(p) }
 func (p Timestamps) Less(i, j int) bool { return string(p[i]) < string(p[j]) }
 func (p Timestamps) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
-
-func combineLimits(limits Limits, newLimits ...OptionalLimits) (updateLimits Limits) {
-	updateLimits = limits
-	for _, l := range newLimits {
-		if l.Hourly != nil {
-			updateLimits.Hourly = *l.Hourly
-		}
-		if l.Daily != nil {
-			updateLimits.Daily = *l.Daily
-		}
-		if l.Weekly != nil {
-			updateLimits.Weekly = *l.Weekly
-		}
-		if l.Monthly != nil {
-			updateLimits.Monthly = *l.Monthly
-		}
-	}
-	return
-}
 
 func parseTimestamp(timestamp Timestamp) (t time.Time, err error) {
 	t, err = time.ParseInLocation(timeFormat, string(timestamp), time.Local)

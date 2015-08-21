@@ -39,19 +39,19 @@ func parseFile(configFile string) (config Config, err error) {
 
 func parseConfig(config Config) (subvolumes []Subvolume) {
 	var localDefaults Limits
-	localDefaults = combineLimits(localDefaults, config.Defaults.Limits)
-	remoteDefaults := combineLimits(localDefaults, config.Defaults.Remote.Limits)
+	localDefaults = localDefaults.Merge(config.Defaults.Limits)
+	remoteDefaults := localDefaults.Merge(config.Defaults.Remote.Limits)
 	for _, snapshot := range config.Snapshot {
 		var subvolume Subvolume
 		subvolume.Directory = snapshot.Directory
 		subvolume.SnapshotDirectory = path.Join(subvolume.Directory, subDir)
-		subvolume.Limits = combineLimits(localDefaults, snapshot.Limits)
+		subvolume.Limits = localDefaults.Merge(snapshot.Limits)
 		for _, remote := range snapshot.Remote {
 			var subvolumeRemote SubvolumeRemote
 			subvolumeRemote.User = remote.User
 			subvolumeRemote.Host = remote.Host
 			subvolumeRemote.Directory = remote.Directory
-			subvolumeRemote.Limits = combineLimits(remoteDefaults, snapshot.Limits, remote.Limits)
+			subvolumeRemote.Limits = remoteDefaults.Merge(snapshot.Limits, remote.Limits)
 			subvolume.Remotes = append(subvolume.Remotes, subvolumeRemote)
 		}
 		subvolumes = append(subvolumes, subvolume)

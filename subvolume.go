@@ -10,12 +10,6 @@ import (
 	"time"
 )
 
-type Limits struct {
-	Hourly  int
-	Daily   int
-	Weekly  int
-	Monthly int
-}
 type Subvolume struct {
 	Directory         string
 	SnapshotDirectory string
