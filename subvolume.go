@@ -110,19 +110,8 @@ func (subvolume *Subvolume) cleanUp(nowTimestamp Timestamp, timestamps []Timesta
 
 func (subvolume *Subvolume) receiveSnapshot(timestamp Timestamp) (err error) {
 	targetPath := path.Join(subvolume.SnapshotDirectory, "timestamp")
-	receiveCmd := exec.Command(btrfsBin, "receive", targetPath)
-	receiveCmd.Stdin = os.Stdin
-	receiveOut, err := receiveCmd.CombinedOutput()
+	err = ReceiveSnapshot(targetPath)
 	if err != nil {
-		fmt.Print(receiveOut)
-		if _, errTmp := os.Stat(targetPath); !os.IsNotExist(errTmp) {
-			errTmp = DeleteSnapshot(targetPath)
-			if errTmp != nil {
-				if !(*quietFlag) {
-					fmt.Println("Failed to deleted to failed snapshot")
-				}
-			}
-		}
 		return
 	}
 	timestamps, err := readTimestampsDir(subvolume.SnapshotDirectory)
