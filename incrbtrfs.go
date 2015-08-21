@@ -111,6 +111,7 @@ func parseTimestamp(timestamp Timestamp) (t time.Time, err error) {
 
 func readTimestampsDir(snapshotsDir string) (timestamps []Timestamp, err error) {
 	timestampsDir := path.Join(snapshotsDir, "timestamp")
+	os.MkdirAll(timestampsDir, 0700|os.ModeDir)
 	fileInfos, err := ioutil.ReadDir(timestampsDir)
 	if err != nil {
 		return
