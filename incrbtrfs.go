@@ -33,22 +33,6 @@ var dailyFlag = flag.Int("daily", 0, "Daily Limit")
 var weeklyFlag = flag.Int("weekly", 0, "Weekly Limit")
 var monthlyFlag = flag.Int("monthly", 0, "Monthly Limit")
 
-func removeAllSymlinks(dir string) (err error) {
-	fileInfos, err := ioutil.ReadDir(dir)
-	if err != nil {
-		return
-	}
-	for _, fi := range fileInfos {
-		if fi.Mode()&os.ModeSymlink != 0 {
-			err = os.Remove(path.Join(dir, fi.Name()))
-			if err != nil {
-				return
-			}
-		}
-	}
-	return
-}
-
 func printCommand(cmd *exec.Cmd) {
 	log.Printf("Running '%s %s'\n", cmd.Path, strings.Join(cmd.Args[1:], " "))
 }

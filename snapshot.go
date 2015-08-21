@@ -15,6 +15,22 @@ type SnapshotLoc struct {
 	Limits    Limits
 }
 
+func removeAllSymlinks(dir string) (err error) {
+	fileInfos, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	for _, fi := range fileInfos {
+		if fi.Mode()&os.ModeSymlink != 0 {
+			err = os.Remove(path.Join(dir, fi.Name()))
+			if err != nil {
+				return
+			}
+		}
+	}
+	return
+}
+
 func (snapshotLoc SnapshotLoc) clean(interval Interval, now time.Time, timestamps []Timestamp) (keptTimestamps TimestampMap, err error) {
 	dir := path.Join(snapshotLoc.Directory, string(interval))
 	err = os.MkdirAll(dir, os.ModeDir|0700)
