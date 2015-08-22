@@ -85,7 +85,7 @@ func (subvolume Subvolume) RunSnapshot(timestamp Timestamp) (err error) {
 		if *verboseFlag && parentTimestamp != "" {
 			log.Printf("Parent = %s\n", string(parentTimestamp))
 		}
-		err = sendSnapshot(targetPath, remote, parentTimestamp)
+		err = remote.SendSnapshot(targetPath, parentTimestamp)
 		if err != nil {
 			log.Println("Error sending snapshot")
 			log.Println(err.Error())
