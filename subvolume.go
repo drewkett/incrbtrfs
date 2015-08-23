@@ -60,7 +60,7 @@ func (subvolume Subvolume) RunSnapshot(timestamp Timestamp) (err error) {
 	if err != nil {
 		return
 	}
-	err = subvolume.SnapshotLoc.CleanUp(timestamp, timestamps)
+	timestamps, err = subvolume.SnapshotLoc.CleanUp(timestamp, timestamps)
 	if err != nil {
 		return
 	}
