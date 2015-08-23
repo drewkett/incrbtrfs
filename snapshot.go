@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"os/exec"
 	"path"
 	"strconv"
 	"time"
@@ -107,12 +108,59 @@ func (snapshotLoc SnapshotLoc) CleanUp(nowTimestamp Timestamp, timestamps []Time
 	return
 }
 
+func (snapshotLoc SnapshotLoc) ReceiveSnapshot(in io.Reader, timestamp Timestamp, watcher CmdWatcher) {
+	if *debugFlag {
+		log.Println("ReceiveSnapshot")
+	}
+	targetPath := path.Join(snapshotLoc.Directory, "timestamp")
+	err := os.MkdirAll(targetPath, 0700|os.ModeDir)
+	log.Println("ReceiveSnapshot: MkdirAll")
+	if err != nil {
+		watcher.Started <- err
+		watcher.Done <- err
+		return
+	}
+	receiveCmd := exec.Command(btrfsBin, "receive", targetPath)
+	if *verboseFlag {
+		printCommand(receiveCmd)
+	}
+	receiveCmd.Stdin = in
+	if *verboseFlag {
+		receiveCmd.Stdout = os.Stderr
+	}
+	err = receiveCmd.Start()
+	if *debugFlag {
+		log.Println("ReceiveSnapshot: Cmd Started")
+	}
+	if err != nil {
+		watcher.Started <- err
+		watcher.Done <- err
+		return
+	}
+	watcher.Started <- nil
+	if *debugFlag {
+		log.Println("ReceiveSnapshot: Cmd Sent Started")
+	}
+	err = receiveCmd.Wait()
+	if *debugFlag {
+		log.Println("ReceiveSnapshot: Cmd Wait")
+	}
+	if err != nil {
+		timestampLoc := path.Join(targetPath, string(timestamp))
+		if _, errTmp := os.Stat(timestampLoc); !os.IsNotExist(errTmp) {
+			errTmp = DeleteSnapshot(timestampLoc)
+		}
+	}
+	watcher.Done <- err
+	return
+}
+
 func (snapshotLoc SnapshotLoc) ReceiveAndCleanUp(in io.Reader, timestamp Timestamp, cw CmdWatcher) {
 	if *debugFlag {
 		log.Println("ReceiveAndCleanup")
 	}
 	subCW := NewCmdWatcher()
-	go ReceiveSnapshot(in, snapshotLoc.Directory, subCW)
+	go snapshotLoc.ReceiveSnapshot(in, timestamp, subCW)
 	if *debugFlag {
 		log.Println("ReceiveAndCleanup: go ReceiveSnapshot")
 	}
