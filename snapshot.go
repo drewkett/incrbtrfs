@@ -127,6 +127,7 @@ func (snapshotLoc SnapshotLoc) ReceiveSnapshot(in io.Reader, timestamp Timestamp
 	receiveCmd.Stdin = in
 	if *verboseFlag {
 		receiveCmd.Stdout = os.Stderr
+		receiveCmd.Stderr = os.Stderr
 	}
 	err = receiveCmd.Start()
 	if *debugFlag {
