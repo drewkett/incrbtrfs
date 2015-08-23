@@ -158,6 +158,8 @@ func main() {
 	}
 	setLoggingDefaults()
 
+	flag.Parse()
+
 	if *debugFlag {
 		*verboseFlag = true
 		*quietFlag = false
@@ -165,7 +167,6 @@ func main() {
 		*quietFlag = false
 	}
 
-	flag.Parse()
 	if *receiveCheckFlag != "" {
 		runRemoteCheck()
 	} else if *receiveFlag != "" {
