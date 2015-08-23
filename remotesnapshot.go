@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"os/exec"
 	"path"
 	"strconv"
@@ -90,14 +91,13 @@ func (remote RemoteSnapshotLoc) RemoteReceive(in io.Reader, timestamp Timestamp,
 	if remote.SnapshotLoc.Limits.Monthly > 0 {
 		receiveArgs = append(receiveArgs, "-monthly", strconv.Itoa(remote.SnapshotLoc.Limits.Monthly))
 	}
-	var out bytes.Buffer
 	cmd := exec.Command("ssh", receiveArgs...)
 	if *verboseFlag {
 		printCommand(cmd)
 	}
 	cmd.Stdin = in
-	cmd.Stdout = &out
-	cmd.Stderr = &out
+	cmd.Stdout = os.Stderr
+	cmd.Stderr = os.Stderr
 	if *debugFlag {
 		log.Println("RemoteReceive: Cmd Start")
 	}
@@ -106,7 +106,6 @@ func (remote RemoteSnapshotLoc) RemoteReceive(in io.Reader, timestamp Timestamp,
 		if *debugFlag {
 			log.Println("RemoteReceive: Cmd Start Error")
 		}
-		log.Print(out.String())
 		cw.Started <- err
 		cw.Done <- err
 		return
@@ -117,10 +116,9 @@ func (remote RemoteSnapshotLoc) RemoteReceive(in io.Reader, timestamp Timestamp,
 	}
 	err = cmd.Wait()
 	if *debugFlag {
-		log.Println("RemoteReceive: Cmd Wait Done")
+		log.Println("RemoteReceive: Cmd Wait")
 	}
 	cw.Done <- err
-	log.Print(out.String())
 }
 
 func (remote RemoteSnapshotLoc) SendSnapshot(timestampPath string, timestamp Timestamp, parent Timestamp) (err error) {
