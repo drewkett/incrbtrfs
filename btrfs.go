@@ -31,7 +31,6 @@ func NewCmdWatcher() (cw CmdWatcher) {
 }
 
 func ReceiveSnapshot(in io.Reader, location string, watcher CmdWatcher) {
-	defer close(watcher.Started)
 	var out bytes.Buffer
 	targetPath := path.Join(location, "timestamp")
 	err := os.MkdirAll(targetPath, 0700|os.ModeDir)
