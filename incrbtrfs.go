@@ -100,7 +100,7 @@ func runRemote() {
 		log.Println(err.Error())
 		os.Exit(1)
 	}
-	err = snapshotLoc.ReceiveSnapshot(timestamp)
+	err = snapshotLoc.ReceiveAndCleanUp(timestamp)
 	if err != nil {
 		log.Println(err.Error())
 		os.Exit(1)
