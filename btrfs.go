@@ -31,10 +31,13 @@ func NewCmdWatcher() (cw CmdWatcher) {
 }
 
 func ReceiveSnapshot(in io.Reader, location string, watcher CmdWatcher) {
+	log.Println("ReceiveSnapshot")
 	var out bytes.Buffer
 	targetPath := path.Join(location, "timestamp")
 	err := os.MkdirAll(targetPath, 0700|os.ModeDir)
+	log.Println("ReceiveSnapshot: MkdirAll")
 	if err != nil {
+		log.Println("ReceiveSnapshot: MkdirAll err")
 		watcher.Started <- err
 		watcher.Done <- err
 		return
