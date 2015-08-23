@@ -81,6 +81,5 @@ func ReceiveSnapshot(in io.Reader, location string, watcher CmdWatcher) {
 		log.Print(out.String())
 	}
 	watcher.Done <- err
-	close(watcher.Started)
 	return
 }
