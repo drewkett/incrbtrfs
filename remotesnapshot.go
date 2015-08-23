@@ -128,9 +128,9 @@ func (remote RemoteSnapshotLoc) SendSnapshot(timestampPath string, timestamp Tim
 
 	cw := NewCmdWatcher()
 	if remote.Host == "" {
-		remote.SnapshotLoc.ReceiveAndCleanUp(sendOut, timestamp, cw)
+		go remote.SnapshotLoc.ReceiveAndCleanUp(sendOut, timestamp, cw)
 	} else {
-		remote.RemoteReceive(sendOut, timestamp, cw)
+		go remote.RemoteReceive(sendOut, timestamp, cw)
 	}
 
 	if *verboseFlag {
