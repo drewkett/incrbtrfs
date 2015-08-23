@@ -24,7 +24,7 @@ type CmdWatcher struct {
 }
 
 func NewCmdWatcher() (cw CmdWatcher) {
-	cw.Started = make(chan error, 1)
+	cw.Started = make(chan error)
 	cw.Done = make(chan error)
 	return
 }
