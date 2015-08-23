@@ -68,6 +68,13 @@ func (remote RemoteSnapshotLoc) RemoteReceive(in io.Reader, timestamp Timestamp,
 	}
 	receiveArgs := []string{sshPath, "incrbtrfs", "-receive", remote.SnapshotLoc.Directory, "-timestamp", string(timestamp)}
 	log.Println(remote.SnapshotLoc.Limits.String())
+	if *debugFlag {
+		receiveArgs = append(receiveArgs, "-debug")
+	} else if *verboseFlag {
+		receiveArgs = append(receiveArgs, "-verbose")
+	} else if *quietFlag {
+		receiveArgs = append(receiveArgs, "-quiet")
+	}
 	if remote.SnapshotLoc.Limits.Hourly > 0 {
 		receiveArgs = append(receiveArgs, "-hourly", strconv.Itoa(remote.SnapshotLoc.Limits.Hourly))
 	}
