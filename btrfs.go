@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -17,24 +19,53 @@ func DeleteSnapshot(location string) (err error) {
 	return
 }
 
-func ReceiveSnapshot(location string) (err error) {
+type CmdWatcher struct {
+	Started chan error
+	Done    chan error
+}
+
+func NewCmdWatcher() (cw CmdWatcher) {
+	cw.Started = make(chan error, 1)
+	cw.Done = make(chan error)
+	return
+}
+
+func ReceiveSnapshot(in io.Reader, location string, watcher CmdWatcher) {
+	defer close(watcher.Started)
+	var out bytes.Buffer
 	targetPath := path.Join(location, "timestamp")
-	receiveCmd := exec.Command(btrfsBin, "receive", targetPath)
-	receiveCmd.Stdin = os.Stdin
-	receiveOut, err := receiveCmd.CombinedOutput()
+	err := os.MkdirAll(targetPath, 0700|os.ModeDir)
 	if err != nil {
-		if !(*quietFlag) {
-			log.Printf(string(receiveOut))
+		watcher.Started <- err
+		watcher.Done <- err
+		return
+	}
+	receiveCmd := exec.Command(btrfsBin, "receive", targetPath)
+	receiveCmd.Stdin = in
+	receiveCmd.Stdout = &out
+	err = receiveCmd.Start()
+	if err != nil {
+		if *verboseFlag {
+			log.Print(out.String())
 		}
+		watcher.Started <- err
+		watcher.Done <- err
+		return
+	}
+	watcher.Started <- nil
+	err = receiveCmd.Wait()
+	if err != nil {
 		if _, errTmp := os.Stat(targetPath); !os.IsNotExist(errTmp) {
 			errTmp = DeleteSnapshot(targetPath)
 			if errTmp != nil {
-				if *verboseFlag {
-					log.Println("Failed to deleted to failed snapshot")
-				}
+				out.WriteString("Couldn't to delete to failed snapshot\n")
 			}
 		}
-		return
 	}
+	if *verboseFlag {
+		log.Print(out.String())
+	}
+	watcher.Done <- err
+	close(watcher.Started)
 	return
 }

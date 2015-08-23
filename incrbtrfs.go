@@ -100,7 +100,9 @@ func runRemote() {
 		log.Println(err.Error())
 		os.Exit(1)
 	}
-	err = snapshotLoc.ReceiveAndCleanUp(timestamp)
+	cw := NewCmdWatcher()
+	snapshotLoc.ReceiveAndCleanUp(os.Stdin, timestamp, cw)
+	err = <-cw.Done
 	if err != nil {
 		log.Println(err.Error())
 		os.Exit(1)

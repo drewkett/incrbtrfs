@@ -31,7 +31,8 @@ func (subvolume Subvolume) Print() {
 }
 
 func (subvolume Subvolume) RunSnapshot(timestamp Timestamp) (err error) {
-	targetPath := path.Join(subvolume.SnapshotLoc.Directory, "timestamp", string(timestamp))
+	timestampPath := path.Join(subvolume.SnapshotLoc.Directory, "timestamp")
+	targetPath := path.Join(timestampPath, string(timestamp))
 	btrfsCmd := exec.Command(btrfsBin, "subvolume", "snapshot", "-r", subvolume.Directory, targetPath)
 	if *verboseFlag {
 		printCommand(btrfsCmd)
@@ -85,7 +86,7 @@ func (subvolume Subvolume) RunSnapshot(timestamp Timestamp) (err error) {
 		if *verboseFlag && parentTimestamp != "" {
 			log.Printf("Parent = %s\n", string(parentTimestamp))
 		}
-		err = remote.SendSnapshot(targetPath, parentTimestamp)
+		err = remote.SendSnapshot(timestampPath, timestamp, parentTimestamp)
 		if err != nil {
 			log.Println("Error sending snapshot")
 			log.Println(err.Error())

@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
-	"os"
 	"os/exec"
 	"path"
 	"strconv"
@@ -55,7 +55,50 @@ func (remote RemoteSnapshotLoc) GetTimestamps() (timestamps []Timestamp, err err
 	return
 }
 
-func (remote RemoteSnapshotLoc) SendSnapshot(snapshotPath string, parent Timestamp) (err error) {
+func (remote RemoteSnapshotLoc) RemoteReceive(in io.Reader, timestamp Timestamp, cw CmdWatcher) {
+	defer close(cw.Started)
+	if remote.Host == "" {
+		err := fmt.Errorf("Invalid command call")
+		cw.Started <- err
+		cw.Done <- err
+		return
+	}
+	sshPath := remote.Host
+	if remote.User != "" {
+		sshPath = remote.User + "@" + sshPath
+	}
+	receiveArgs := []string{sshPath, "incrbtrfs", "-receive", remote.SnapshotLoc.Directory, "-timestamp", string(timestamp)}
+	log.Println(remote.SnapshotLoc.Limits.String())
+	if remote.SnapshotLoc.Limits.Hourly > 0 {
+		receiveArgs = append(receiveArgs, "-hourly", strconv.Itoa(remote.SnapshotLoc.Limits.Hourly))
+	}
+	if remote.SnapshotLoc.Limits.Daily > 0 {
+		receiveArgs = append(receiveArgs, "-daily", strconv.Itoa(remote.SnapshotLoc.Limits.Daily))
+	}
+	if remote.SnapshotLoc.Limits.Weekly > 0 {
+		receiveArgs = append(receiveArgs, "-weekly", strconv.Itoa(remote.SnapshotLoc.Limits.Weekly))
+	}
+	if remote.SnapshotLoc.Limits.Monthly > 0 {
+		receiveArgs = append(receiveArgs, "-monthly", strconv.Itoa(remote.SnapshotLoc.Limits.Monthly))
+	}
+	var out bytes.Buffer
+	cmd := exec.Command("ssh", receiveArgs...)
+	cmd.Stdin = in
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+	err := cmd.Start()
+	if err != nil {
+		cw.Started <- err
+		cw.Done <- err
+		return
+	}
+	cw.Started <- nil
+	err = cmd.Wait()
+	cw.Done <- err
+}
+
+func (remote RemoteSnapshotLoc) SendSnapshot(timestampPath string, timestamp Timestamp, parent Timestamp) (err error) {
+	snapshotPath := path.Join(timestampPath, string(timestamp))
 	var sendErr bytes.Buffer
 	var sendCmd *exec.Cmd
 	if parent == "" {
@@ -76,52 +119,20 @@ func (remote RemoteSnapshotLoc) SendSnapshot(snapshotPath string, parent Timesta
 		return
 	}
 
-	var receiveOut bytes.Buffer
-	var receiveCmd *exec.Cmd
+	cw := NewCmdWatcher()
 	if remote.Host == "" {
-		remoteTarget := path.Join(remote.SnapshotLoc.Directory, "timestamp")
-		err = os.MkdirAll(remoteTarget, 0700|os.ModeDir)
-		if err != nil {
-			return
-		}
-		receiveCmd = exec.Command(btrfsBin, "receive", remoteTarget)
-		receiveCmd.Stdin = sendOut
-		receiveCmd.Stdout = &receiveOut
-		receiveCmd.Stderr = &receiveOut
+		remote.SnapshotLoc.ReceiveAndCleanUp(sendOut, timestamp, cw)
 	} else {
-		sshPath := remote.Host
-		if remote.User != "" {
-			sshPath = remote.User + "@" + sshPath
-		}
-		receiveArgs := []string{sshPath, "incrbtrfs", "-receive", remote.SnapshotLoc.Directory, "-timestamp", path.Base(snapshotPath)}
-		log.Println(remote.SnapshotLoc.Limits.String())
-		if remote.SnapshotLoc.Limits.Hourly > 0 {
-			receiveArgs = append(receiveArgs, "-hourly", strconv.Itoa(remote.SnapshotLoc.Limits.Hourly))
-		}
-		if remote.SnapshotLoc.Limits.Daily > 0 {
-			receiveArgs = append(receiveArgs, "-daily", strconv.Itoa(remote.SnapshotLoc.Limits.Daily))
-		}
-		if remote.SnapshotLoc.Limits.Weekly > 0 {
-			receiveArgs = append(receiveArgs, "-weekly", strconv.Itoa(remote.SnapshotLoc.Limits.Weekly))
-		}
-		if remote.SnapshotLoc.Limits.Monthly > 0 {
-			receiveArgs = append(receiveArgs, "-monthly", strconv.Itoa(remote.SnapshotLoc.Limits.Monthly))
-		}
-		receiveCmd = exec.Command("ssh", receiveArgs...)
-		receiveCmd.Stdin = sendOut
-		receiveCmd.Stdout = &receiveOut
-		receiveCmd.Stderr = &receiveOut
+		remote.RemoteReceive(sendOut, timestamp, cw)
 	}
 
 	if *verboseFlag {
 		printCommand(sendCmd)
-		printCommand(receiveCmd)
 	}
 
-	err = receiveCmd.Start()
+	err = <-cw.Started
 	if err != nil {
 		log.Println("Error with btrfs receive")
-		log.Print(receiveOut.String())
 		return
 	}
 	err = sendCmd.Run()
@@ -130,10 +141,9 @@ func (remote RemoteSnapshotLoc) SendSnapshot(snapshotPath string, parent Timesta
 		log.Print(sendErr.String())
 		return
 	}
-	err = receiveCmd.Wait()
+	err = <-cw.Done
 	if err != nil {
 		log.Println("Error with btrfs receive")
-		log.Print(receiveOut.String())
 		return
 	}
 	return

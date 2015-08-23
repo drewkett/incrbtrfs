@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -107,20 +108,24 @@ func (snapshotLoc SnapshotLoc) CleanUp(nowTimestamp Timestamp, timestamps []Time
 	return
 }
 
-func (snapshotLoc SnapshotLoc) ReceiveAndCleanUp(timestamp Timestamp) (err error) {
+func (snapshotLoc SnapshotLoc) ReceiveAndCleanUp(in io.Reader, timestamp Timestamp, cw CmdWatcher) {
 	targetPath := path.Join(snapshotLoc.Directory, "timestamp")
-	err = ReceiveSnapshot(targetPath)
+	subCW := NewCmdWatcher()
+	close(subCW.Started)
+	cw.Started = subCW.Started
+	go ReceiveSnapshot(in, targetPath, subCW)
+	err := <-subCW.Done
 	if err != nil {
+		cw.Done <- err
 		return
 	}
 	timestamps, err := snapshotLoc.ReadTimestampsDir()
 	if err != nil {
+		cw.Done <- err
 		return
 	}
 	err = snapshotLoc.CleanUp(timestamp, timestamps)
-	if err != nil {
-		return
-	}
+	cw.Done <- err
 	return
 }
 
