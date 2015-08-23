@@ -82,11 +82,15 @@ func (remote RemoteSnapshotLoc) RemoteReceive(in io.Reader, timestamp Timestamp,
 	}
 	var out bytes.Buffer
 	cmd := exec.Command("ssh", receiveArgs...)
+	if *verboseFlag {
+		printCommand(cmd)
+	}
 	cmd.Stdin = in
 	cmd.Stdout = &out
 	cmd.Stderr = &out
 	err := cmd.Start()
 	if err != nil {
+		log.Print(out.String())
 		cw.Started <- err
 		cw.Done <- err
 		return
@@ -94,6 +98,7 @@ func (remote RemoteSnapshotLoc) RemoteReceive(in io.Reader, timestamp Timestamp,
 	cw.Started <- nil
 	err = cmd.Wait()
 	cw.Done <- err
+	log.Print(out.String())
 }
 
 func (remote RemoteSnapshotLoc) SendSnapshot(timestampPath string, timestamp Timestamp, parent Timestamp) (err error) {
@@ -111,6 +116,9 @@ func (remote RemoteSnapshotLoc) SendSnapshot(timestampPath string, timestamp Tim
 		}
 		parentPath := path.Join(path.Dir(snapshotPath), string(parent))
 		sendCmd = exec.Command(btrfsBin, "send", "-p", parentPath, snapshotPath)
+	}
+	if *verboseFlag {
+		printCommand(sendCmd)
 	}
 	sendCmd.Stderr = &sendErr
 	sendOut, err := sendCmd.StdoutPipe()

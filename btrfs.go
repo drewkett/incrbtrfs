@@ -40,6 +40,9 @@ func ReceiveSnapshot(in io.Reader, location string, watcher CmdWatcher) {
 		return
 	}
 	receiveCmd := exec.Command(btrfsBin, "receive", targetPath)
+	if *verboseFlag {
+		printCommand(receiveCmd)
+	}
 	receiveCmd.Stdin = in
 	receiveCmd.Stdout = &out
 	err = receiveCmd.Start()

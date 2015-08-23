@@ -96,6 +96,9 @@ func (snapshotLoc SnapshotLoc) CleanUp(nowTimestamp Timestamp, timestamps []Time
 			var output []byte
 			timestampLoc := path.Join(timestampsDir, string(timestamp))
 			btrfsCmd := exec.Command(btrfsBin, "subvolume", "delete", timestampLoc)
+			if *verboseFlag {
+				printCommand(btrfsCmd)
+			}
 			output, err = btrfsCmd.CombinedOutput()
 			if err != nil {
 				if !(*quietFlag) {
