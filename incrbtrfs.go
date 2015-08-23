@@ -150,6 +150,10 @@ func setLoggingDefaults() {
 	log.SetFlags(0)
 }
 
+func setRemoteLogging() {
+	log.SetPrefix("[remote] ")
+}
+
 func main() {
 	err := getLock()
 	if err != nil {
@@ -168,8 +172,10 @@ func main() {
 	}
 
 	if *receiveCheckFlag != "" {
+		setRemoteLogging()
 		runRemoteCheck()
 	} else if *receiveFlag != "" {
+		setRemoteLogging()
 		runRemote()
 	} else {
 		runLocal()
