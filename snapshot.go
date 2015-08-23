@@ -188,10 +188,16 @@ func (snapshotLoc SnapshotLoc) ReceiveAndCleanUp(in io.Reader, timestamp Timesta
 		cw.Done <- err
 		return
 	}
+	if *debugFlag {
+		log.Println("ReceiveAndCleanup: ReadTimestampsDir")
+	}
 	timestamps, err := snapshotLoc.ReadTimestampsDir()
 	if err != nil {
 		cw.Done <- err
 		return
+	}
+	if *debugFlag {
+		log.Println("ReceiveAndCleanup: CleanUp")
 	}
 	_, err = snapshotLoc.CleanUp(timestamp, timestamps)
 	cw.Done <- err
