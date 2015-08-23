@@ -24,14 +24,14 @@ func (remote RemoteSnapshotLoc) GetTimestamps() (timestamps []Timestamp, err err
 		sshPath = remote.User + "@" + sshPath
 	}
 	var receiveCheckOut []byte
-	var receiveCheckErr bytes.Buffer
 	receiveCheckCmd := exec.Command("ssh", sshPath, "incrbtrfs", "-receiveCheck", remote.SnapshotLoc.Directory)
-	receiveCheckCmd.Stderr = &receiveCheckErr
+	if *verboseFlag {
+		receiveCheckCmd.Stderr = os.Stderr
+	}
 	receiveCheckOut, err = receiveCheckCmd.Output()
 	if err != nil {
 		log.Println("Failed to run ReceiveCheck")
 		log.Println(string(receiveCheckOut))
-		log.Println(receiveCheckErr.String())
 		return
 	}
 	log.Println(string(receiveCheckOut))

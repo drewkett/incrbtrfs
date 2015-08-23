@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"io"
 	"log"
 	"os"
@@ -34,7 +33,6 @@ func ReceiveSnapshot(in io.Reader, location string, watcher CmdWatcher) {
 	if *debugFlag {
 		log.Println("ReceiveSnapshot")
 	}
-	var out bytes.Buffer
 	targetPath := path.Join(location, "timestamp")
 	err := os.MkdirAll(targetPath, 0700|os.ModeDir)
 	log.Println("ReceiveSnapshot: MkdirAll")
@@ -48,15 +46,14 @@ func ReceiveSnapshot(in io.Reader, location string, watcher CmdWatcher) {
 		printCommand(receiveCmd)
 	}
 	receiveCmd.Stdin = in
-	receiveCmd.Stdout = &out
+	if *verboseFlag {
+		receiveCmd.Stdout = os.Stderr
+	}
 	err = receiveCmd.Start()
 	if *debugFlag {
 		log.Println("ReceiveSnapshot: Cmd Started")
 	}
 	if err != nil {
-		if *verboseFlag {
-			log.Print(out.String())
-		}
 		watcher.Started <- err
 		watcher.Done <- err
 		return
@@ -72,13 +69,7 @@ func ReceiveSnapshot(in io.Reader, location string, watcher CmdWatcher) {
 	if err != nil {
 		if _, errTmp := os.Stat(targetPath); !os.IsNotExist(errTmp) {
 			errTmp = DeleteSnapshot(targetPath)
-			if errTmp != nil {
-				out.WriteString("Couldn't to delete to failed snapshot\n")
-			}
 		}
-	}
-	if *verboseFlag {
-		log.Print(out.String())
 	}
 	watcher.Done <- err
 	return
