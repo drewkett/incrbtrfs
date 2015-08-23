@@ -18,7 +18,7 @@ import (
 const btrfsBin string = "/sbin/btrfs"
 const subDir string = ".incrbtrfs"
 const timeFormat string = "20060102_150405"
-const version int = 2
+const version int = 3
 
 var quietFlag = flag.Bool("quiet", false, "Quiet Mode")
 var verboseFlag = flag.Bool("verbose", false, "Verbose Mode")
