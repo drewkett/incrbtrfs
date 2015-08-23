@@ -75,6 +75,9 @@ func (snapshotLoc SnapshotLoc) clean(interval Interval, now time.Time, timestamp
 }
 
 func (snapshotLoc SnapshotLoc) CleanUp(nowTimestamp Timestamp, timestamps []Timestamp) (err error) {
+	if *verboseFlag {
+		log.Println("Running Clean Up")
+	}
 	now, err := parseTimestamp(nowTimestamp)
 	if err != nil {
 		return
