@@ -36,12 +36,11 @@ func (subvolume Subvolume) RunSnapshot(timestamp Timestamp) (err error) {
 	btrfsCmd := exec.Command(btrfsBin, "subvolume", "snapshot", "-r", subvolume.Directory, targetPath)
 	if *verboseFlag {
 		printCommand(btrfsCmd)
+		btrfsCmd.Stdout = os.Stderr
+		btrfsCmd.Stderr = os.Stderr
 	}
-	output, err := btrfsCmd.CombinedOutput()
+	err = btrfsCmd.Run()
 	if err != nil {
-		if !(*quietFlag) {
-			log.Printf("%s", output)
-		}
 		if _, errTmp := os.Stat(targetPath); !os.IsNotExist(errTmp) {
 			errTmp = DeleteSnapshot(targetPath)
 			if errTmp != nil {
@@ -51,9 +50,6 @@ func (subvolume Subvolume) RunSnapshot(timestamp Timestamp) (err error) {
 			}
 		}
 		return
-	}
-	if *verboseFlag {
-		log.Printf("%s", output)
 	}
 
 	timestamps, err := subvolume.SnapshotLoc.ReadTimestampsDir()
