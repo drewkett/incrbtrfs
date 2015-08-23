@@ -60,11 +60,6 @@ func (subvolume Subvolume) RunSnapshot(timestamp Timestamp) (err error) {
 	if err != nil {
 		return
 	}
-	timestamps, err = subvolume.SnapshotLoc.CleanUp(timestamp, timestamps)
-	if err != nil {
-		return
-	}
-
 	for _, remote := range subvolume.Remotes {
 		var remoteTimestamps []Timestamp
 		if remote.Host == "" {
@@ -94,5 +89,10 @@ func (subvolume Subvolume) RunSnapshot(timestamp Timestamp) (err error) {
 			continue
 		}
 	}
+	_, err = subvolume.SnapshotLoc.CleanUp(timestamp, timestamps)
+	if err != nil {
+		return
+	}
+
 	return
 }
