@@ -13,6 +13,8 @@ func DeleteSnapshot(location string) (err error) {
 	btrfsCmd := exec.Command(btrfsBin, "subvolume", "delete", location)
 	if *verboseFlag {
 		printCommand(btrfsCmd)
+		btrfsCmd.Stdout = os.Stderr
+		btrfsCmd.Stderr = os.Stderr
 	}
 	err = btrfsCmd.Run()
 	return

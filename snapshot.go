@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"os/exec"
 	"path"
 	"strconv"
 	"time"
@@ -98,17 +97,9 @@ func (snapshotLoc SnapshotLoc) CleanUp(nowTimestamp Timestamp, timestamps []Time
 		if _, ok := keptTimestampsMap[timestamp]; ok {
 			keptTimestamps = append(keptTimestamps, timestamp)
 		} else {
-			var output []byte
 			timestampLoc := path.Join(timestampsDir, string(timestamp))
-			btrfsCmd := exec.Command(btrfsBin, "subvolume", "delete", timestampLoc)
-			if *verboseFlag {
-				printCommand(btrfsCmd)
-			}
-			output, err = btrfsCmd.CombinedOutput()
+			err = DeleteSnapshot(timestampLoc)
 			if err != nil {
-				if !(*quietFlag) {
-					log.Printf("%s", output)
-				}
 				return
 			}
 		}
