@@ -111,10 +111,15 @@ func (snapshotLoc SnapshotLoc) CleanUp(nowTimestamp Timestamp, timestamps []Time
 func (snapshotLoc SnapshotLoc) ReceiveAndCleanUp(in io.Reader, timestamp Timestamp, cw CmdWatcher) {
 	targetPath := path.Join(snapshotLoc.Directory, "timestamp")
 	subCW := NewCmdWatcher()
-	close(subCW.Started)
-	cw.Started = subCW.Started
 	go ReceiveSnapshot(in, targetPath, subCW)
-	err := <-subCW.Done
+	err := <-subCW.Started
+	if err != nil {
+		cw.Started <- err
+		cw.Done <- err
+		return
+	}
+	cw.Started <- nil
+	err = <-subCW.Done
 	if err != nil {
 		cw.Done <- err
 		return
