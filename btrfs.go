@@ -37,7 +37,6 @@ func ReceiveSnapshot(in io.Reader, location string, watcher CmdWatcher) {
 	err := os.MkdirAll(targetPath, 0700|os.ModeDir)
 	log.Println("ReceiveSnapshot: MkdirAll")
 	if err != nil {
-		log.Println("ReceiveSnapshot: MkdirAll err")
 		watcher.Started <- err
 		watcher.Done <- err
 		return
@@ -49,6 +48,7 @@ func ReceiveSnapshot(in io.Reader, location string, watcher CmdWatcher) {
 	receiveCmd.Stdin = in
 	receiveCmd.Stdout = &out
 	err = receiveCmd.Start()
+	log.Println("ReceiveSnapshot: Cmd Started")
 	if err != nil {
 		if *verboseFlag {
 			log.Print(out.String())
@@ -58,7 +58,9 @@ func ReceiveSnapshot(in io.Reader, location string, watcher CmdWatcher) {
 		return
 	}
 	watcher.Started <- nil
+	log.Println("ReceiveSnapshot: Cmd Sent Started")
 	err = receiveCmd.Wait()
+	log.Println("ReceiveSnapshot: Cmd Wait")
 	if err != nil {
 		if _, errTmp := os.Stat(targetPath); !os.IsNotExist(errTmp) {
 			errTmp = DeleteSnapshot(targetPath)
