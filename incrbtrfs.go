@@ -105,7 +105,7 @@ func runRemote() {
 	if *debugFlag {
 		log.Println("runRemote: ReceiveAndCleanUp")
 	}
-	snapshotLoc.ReceiveAndCleanUp(os.Stdin, timestamp, cw)
+	go snapshotLoc.ReceiveAndCleanUp(os.Stdin, timestamp, cw)
 	err = <-cw.Started
 	if *debugFlag {
 		log.Println("runRemote: ReceiveAndCleanUp Started")
