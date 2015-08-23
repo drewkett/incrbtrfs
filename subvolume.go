@@ -4,36 +4,34 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"path"
 	"strings"
 )
 
 type Subvolume struct {
-	Directory   string
-	SnapshotLoc SnapshotLoc
-	Remotes     []RemoteSnapshotLoc
+	Directory    string
+	SnapshotsLoc SnapshotsLoc
+	Remotes      []RemoteSnapshotsLoc
 }
 
 func (subvolume Subvolume) Print() {
 	log.Printf("Subvolume='%s'", subvolume.Directory)
-	log.Printf("Snapshot Dir='%s' (%s)\n", subvolume.SnapshotLoc.Directory, subvolume.SnapshotLoc.Limits.String())
+	log.Printf("Snapshot Dir='%s' (%s)\n", subvolume.SnapshotsLoc.Directory, subvolume.SnapshotsLoc.Limits.String())
 	for _, remote := range subvolume.Remotes {
-		dst := remote.SnapshotLoc.Directory
+		dst := remote.SnapshotsLoc.Directory
 		if remote.Host != "" {
 			dst = strings.Join([]string{remote.Host, dst}, ":")
 			if remote.User != "" {
 				dst = strings.Join([]string{remote.User, dst}, "@")
 			}
 		}
-		log.Printf("Remote Dir='%s' (%s)\n", dst, remote.SnapshotLoc.Limits.String())
+		log.Printf("Remote Dir='%s' (%s)\n", dst, remote.SnapshotsLoc.Limits.String())
 	}
 
 }
 
 func (subvolume Subvolume) RunSnapshot(timestamp Timestamp) (err error) {
-	timestampPath := path.Join(subvolume.SnapshotLoc.Directory, "timestamp")
-	targetPath := path.Join(timestampPath, string(timestamp))
-	btrfsCmd := exec.Command(btrfsBin, "subvolume", "snapshot", "-r", subvolume.Directory, targetPath)
+	snapshot := Snapshot{subvolume.SnapshotsLoc, timestamp}
+	btrfsCmd := exec.Command(btrfsBin, "subvolume", "snapshot", "-r", subvolume.Directory, snapshot.Path())
 	if *verboseFlag {
 		printCommand(btrfsCmd)
 		btrfsCmd.Stdout = os.Stderr
@@ -41,8 +39,8 @@ func (subvolume Subvolume) RunSnapshot(timestamp Timestamp) (err error) {
 	}
 	err = btrfsCmd.Run()
 	if err != nil {
-		if _, errTmp := os.Stat(targetPath); !os.IsNotExist(errTmp) {
-			errTmp = DeleteSnapshot(targetPath)
+		if _, errTmp := os.Stat(snapshot.Path()); !os.IsNotExist(errTmp) {
+			errTmp = snapshot.DeleteSnapshot()
 			if errTmp != nil {
 				if !(*quietFlag) {
 					log.Println("Failed to deleted to failed snapshot")
@@ -52,14 +50,14 @@ func (subvolume Subvolume) RunSnapshot(timestamp Timestamp) (err error) {
 		return
 	}
 
-	timestamps, err := subvolume.SnapshotLoc.ReadTimestampsDir()
+	timestamps, err := subvolume.SnapshotsLoc.ReadTimestampsDir()
 	if err != nil {
 		return
 	}
 	for _, remote := range subvolume.Remotes {
 		var remoteTimestamps []Timestamp
 		if remote.Host == "" {
-			remoteTimestamps, err = remote.SnapshotLoc.ReadTimestampsDir()
+			remoteTimestamps, err = remote.SnapshotsLoc.ReadTimestampsDir()
 			if err != nil {
 				log.Println(err.Error())
 				err = nil
@@ -77,7 +75,7 @@ func (subvolume Subvolume) RunSnapshot(timestamp Timestamp) (err error) {
 		if *verboseFlag && parentTimestamp != "" {
 			log.Printf("Parent = %s\n", string(parentTimestamp))
 		}
-		err = remote.SendSnapshot(timestampPath, timestamp, parentTimestamp)
+		err = remote.SendSnapshot(snapshot, parentTimestamp)
 		if err != nil {
 			log.Println("Error sending snapshot")
 			log.Println(err.Error())
@@ -85,7 +83,7 @@ func (subvolume Subvolume) RunSnapshot(timestamp Timestamp) (err error) {
 			continue
 		}
 	}
-	_, err = subvolume.SnapshotLoc.CleanUp(timestamp, timestamps)
+	_, err = subvolume.SnapshotsLoc.CleanUp(timestamp, timestamps)
 	if err != nil {
 		return
 	}

@@ -12,19 +12,19 @@ import (
 	"strconv"
 )
 
-type RemoteSnapshotLoc struct {
-	Host        string
-	User        string
-	SnapshotLoc SnapshotLoc
+type RemoteSnapshotsLoc struct {
+	Host         string
+	User         string
+	SnapshotsLoc SnapshotsLoc
 }
 
-func (remote RemoteSnapshotLoc) GetTimestamps() (timestamps []Timestamp, err error) {
+func (remote RemoteSnapshotsLoc) GetTimestamps() (timestamps []Timestamp, err error) {
 	sshPath := remote.Host
 	if remote.User != "" {
 		sshPath = remote.User + "@" + sshPath
 	}
 	var receiveCheckOut []byte
-	receiveCheckCmd := exec.Command("ssh", sshPath, "incrbtrfs", "-receiveCheck", remote.SnapshotLoc.Directory)
+	receiveCheckCmd := exec.Command("ssh", sshPath, "incrbtrfs", "-receiveCheck", remote.SnapshotsLoc.Directory)
 	if *verboseFlag {
 		receiveCheckCmd.Stderr = os.Stderr
 	}
@@ -55,7 +55,7 @@ func (remote RemoteSnapshotLoc) GetTimestamps() (timestamps []Timestamp, err err
 	return
 }
 
-func (remote RemoteSnapshotLoc) RemoteReceive(in io.Reader, timestamp Timestamp, cw CmdWatcher) {
+func (remote RemoteSnapshotsLoc) RemoteReceive(in io.Reader, timestamp Timestamp, cw CmdWatcher) {
 	if *debugFlag {
 		log.Println("RemoteReceive")
 	}
@@ -69,7 +69,7 @@ func (remote RemoteSnapshotLoc) RemoteReceive(in io.Reader, timestamp Timestamp,
 	if remote.User != "" {
 		sshPath = remote.User + "@" + sshPath
 	}
-	receiveArgs := []string{sshPath, "incrbtrfs", "-receive", remote.SnapshotLoc.Directory, "-timestamp", string(timestamp)}
+	receiveArgs := []string{sshPath, "incrbtrfs", "-receive", remote.SnapshotsLoc.Directory, "-timestamp", string(timestamp)}
 	if *debugFlag {
 		receiveArgs = append(receiveArgs, "-debug")
 	} else if *verboseFlag {
@@ -77,17 +77,17 @@ func (remote RemoteSnapshotLoc) RemoteReceive(in io.Reader, timestamp Timestamp,
 	} else if *quietFlag {
 		receiveArgs = append(receiveArgs, "-quiet")
 	}
-	if remote.SnapshotLoc.Limits.Hourly > 0 {
-		receiveArgs = append(receiveArgs, "-hourly", strconv.Itoa(remote.SnapshotLoc.Limits.Hourly))
+	if remote.SnapshotsLoc.Limits.Hourly > 0 {
+		receiveArgs = append(receiveArgs, "-hourly", strconv.Itoa(remote.SnapshotsLoc.Limits.Hourly))
 	}
-	if remote.SnapshotLoc.Limits.Daily > 0 {
-		receiveArgs = append(receiveArgs, "-daily", strconv.Itoa(remote.SnapshotLoc.Limits.Daily))
+	if remote.SnapshotsLoc.Limits.Daily > 0 {
+		receiveArgs = append(receiveArgs, "-daily", strconv.Itoa(remote.SnapshotsLoc.Limits.Daily))
 	}
-	if remote.SnapshotLoc.Limits.Weekly > 0 {
-		receiveArgs = append(receiveArgs, "-weekly", strconv.Itoa(remote.SnapshotLoc.Limits.Weekly))
+	if remote.SnapshotsLoc.Limits.Weekly > 0 {
+		receiveArgs = append(receiveArgs, "-weekly", strconv.Itoa(remote.SnapshotsLoc.Limits.Weekly))
 	}
-	if remote.SnapshotLoc.Limits.Monthly > 0 {
-		receiveArgs = append(receiveArgs, "-monthly", strconv.Itoa(remote.SnapshotLoc.Limits.Monthly))
+	if remote.SnapshotsLoc.Limits.Monthly > 0 {
+		receiveArgs = append(receiveArgs, "-monthly", strconv.Itoa(remote.SnapshotsLoc.Limits.Monthly))
 	}
 	cmd := exec.Command("ssh", receiveArgs...)
 	if *verboseFlag {
@@ -119,21 +119,20 @@ func (remote RemoteSnapshotLoc) RemoteReceive(in io.Reader, timestamp Timestamp,
 	cw.Done <- err
 }
 
-func (remote RemoteSnapshotLoc) SendSnapshot(timestampPath string, timestamp Timestamp, parent Timestamp) (err error) {
-	snapshotPath := path.Join(timestampPath, string(timestamp))
+func (remote RemoteSnapshotsLoc) SendSnapshot(snapshot Snapshot, parent Timestamp) (err error) {
 	var sendErr bytes.Buffer
 	var sendCmd *exec.Cmd
 	if parent == "" {
 		if *verboseFlag {
 			log.Println("Performing full send/receive")
 		}
-		sendCmd = exec.Command(btrfsBin, "send", snapshotPath)
+		sendCmd = exec.Command(btrfsBin, "send", snapshot.Path())
 	} else {
 		if *verboseFlag {
 			log.Println("Performing incremental send/receive")
 		}
-		parentPath := path.Join(path.Dir(snapshotPath), string(parent))
-		sendCmd = exec.Command(btrfsBin, "send", "-p", parentPath, snapshotPath)
+		parentPath := path.Join(path.Dir(snapshot.Path()), string(parent))
+		sendCmd = exec.Command(btrfsBin, "send", "-p", parentPath, snapshot.Path())
 	}
 	sendCmd.Stderr = &sendErr
 	sendOut, err := sendCmd.StdoutPipe()
@@ -143,9 +142,9 @@ func (remote RemoteSnapshotLoc) SendSnapshot(timestampPath string, timestamp Tim
 
 	cw := NewCmdWatcher()
 	if remote.Host == "" {
-		go remote.SnapshotLoc.ReceiveAndCleanUp(sendOut, timestamp, cw)
+		go remote.SnapshotsLoc.ReceiveAndCleanUp(sendOut, snapshot.timestamp, cw)
 	} else {
-		go remote.RemoteReceive(sendOut, timestamp, cw)
+		go remote.RemoteReceive(sendOut, snapshot.timestamp, cw)
 	}
 
 	err = <-cw.Started

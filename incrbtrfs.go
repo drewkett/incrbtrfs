@@ -13,7 +13,6 @@ import (
 	"time"
 )
 
-//TODO make sure to delete failed send/receives
 //TODO add comments
 
 const btrfsBin string = "/sbin/btrfs"
@@ -88,9 +87,9 @@ func runRemote() {
 		log.Println("Must specify timestamp in receive mode")
 		os.Exit(1)
 	}
-	var snapshotLoc SnapshotLoc
-	snapshotLoc.Directory = *receiveFlag
-	snapshotLoc.Limits = Limits{
+	var snapshotsLoc SnapshotsLoc
+	snapshotsLoc.Directory = *receiveFlag
+	snapshotsLoc.Limits = Limits{
 		Hourly:  *hourlyFlag,
 		Daily:   *dailyFlag,
 		Weekly:  *weeklyFlag,
@@ -105,7 +104,7 @@ func runRemote() {
 	if *debugFlag {
 		log.Println("runRemote: ReceiveAndCleanUp")
 	}
-	go snapshotLoc.ReceiveAndCleanUp(os.Stdin, timestamp, cw)
+	go snapshotsLoc.ReceiveAndCleanUp(os.Stdin, timestamp, cw)
 	err = <-cw.Started
 	if *debugFlag {
 		log.Println("runRemote: ReceiveAndCleanUp Started")
