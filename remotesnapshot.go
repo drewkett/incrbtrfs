@@ -34,7 +34,6 @@ func (remote RemoteSnapshotLoc) GetTimestamps() (timestamps []Timestamp, err err
 		log.Println(string(receiveCheckOut))
 		return
 	}
-	log.Println(string(receiveCheckOut))
 	var checkStr RemoteCheck
 	err = json.Unmarshal(receiveCheckOut, &checkStr)
 	if err != nil {

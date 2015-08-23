@@ -114,7 +114,9 @@ func (snapshotLoc SnapshotLoc) ReceiveSnapshot(in io.Reader, timestamp Timestamp
 	}
 	targetPath := path.Join(snapshotLoc.Directory, "timestamp")
 	err := os.MkdirAll(targetPath, 0700|os.ModeDir)
-	log.Println("ReceiveSnapshot: MkdirAll")
+	if *debugFlag {
+		log.Println("ReceiveSnapshot: MkdirAll")
+	}
 	if err != nil {
 		watcher.Started <- err
 		watcher.Done <- err
