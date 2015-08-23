@@ -56,6 +56,9 @@ func (remote RemoteSnapshotLoc) GetTimestamps() (timestamps []Timestamp, err err
 }
 
 func (remote RemoteSnapshotLoc) RemoteReceive(in io.Reader, timestamp Timestamp, cw CmdWatcher) {
+	if *debugFlag {
+		log.Println("RemoteReceive")
+	}
 	if remote.Host == "" {
 		err := fmt.Errorf("Invalid command call")
 		cw.Started <- err
@@ -95,14 +98,23 @@ func (remote RemoteSnapshotLoc) RemoteReceive(in io.Reader, timestamp Timestamp,
 	cmd.Stdin = in
 	cmd.Stdout = &out
 	cmd.Stderr = &out
+	if *debugFlag {
+		log.Println("RemoteReceive: Cmd Start")
+	}
 	err := cmd.Start()
 	if err != nil {
+		if *debugFlag {
+			log.Println("RemoteReceive: Cmd Start Error")
+		}
 		log.Print(out.String())
 		cw.Started <- err
 		cw.Done <- err
 		return
 	}
 	cw.Started <- nil
+	if *debugFlag {
+		log.Println("RemoteReceive: Cmd Wait")
+	}
 	err = cmd.Wait()
 	cw.Done <- err
 	log.Print(out.String())
