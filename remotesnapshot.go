@@ -137,9 +137,6 @@ func (remote RemoteSnapshotLoc) SendSnapshot(timestampPath string, timestamp Tim
 		parentPath := path.Join(path.Dir(snapshotPath), string(parent))
 		sendCmd = exec.Command(btrfsBin, "send", "-p", parentPath, snapshotPath)
 	}
-	if *verboseFlag {
-		printCommand(sendCmd)
-	}
 	sendCmd.Stderr = &sendErr
 	sendOut, err := sendCmd.StdoutPipe()
 	if err != nil {
@@ -153,14 +150,14 @@ func (remote RemoteSnapshotLoc) SendSnapshot(timestampPath string, timestamp Tim
 		go remote.RemoteReceive(sendOut, timestamp, cw)
 	}
 
-	if *verboseFlag {
-		printCommand(sendCmd)
-	}
-
 	err = <-cw.Started
 	if err != nil {
 		log.Println("Error with btrfs receive")
 		return
+	}
+
+	if *verboseFlag {
+		printCommand(sendCmd)
 	}
 	err = sendCmd.Run()
 	if err != nil {
