@@ -115,16 +115,34 @@ func (snapshotLoc SnapshotLoc) CleanUp(nowTimestamp Timestamp, timestamps []Time
 }
 
 func (snapshotLoc SnapshotLoc) ReceiveAndCleanUp(in io.Reader, timestamp Timestamp, cw CmdWatcher) {
+	if *verboseFlag {
+		log.Println("ReceiveAndCleanup")
+	}
 	subCW := NewCmdWatcher()
 	go ReceiveSnapshot(in, snapshotLoc.Directory, subCW)
+	if *verboseFlag {
+		log.Println("ReceiveAndCleanup: go ReceiveSnapshot")
+	}
 	err := <-subCW.Started
+	if *verboseFlag {
+		log.Println("ReceiveAndCleanup: Receive Started")
+	}
 	if err != nil {
 		cw.Started <- err
 		cw.Done <- err
 		return
 	}
+	if *verboseFlag {
+		log.Println("ReceiveAndCleanup: Started")
+	}
 	cw.Started <- nil
+	if *verboseFlag {
+		log.Println("ReceiveAndCleanup: Sent Started")
+	}
 	err = <-subCW.Done
+	if *verboseFlag {
+		log.Println("ReceiveAndCleanup: Receive Done")
+	}
 	if err != nil {
 		cw.Done <- err
 		return
