@@ -23,6 +23,7 @@ const version int = 2
 
 var quietFlag = flag.Bool("quiet", false, "Quiet Mode")
 var verboseFlag = flag.Bool("verbose", false, "Verbose Mode")
+var debugFlag = flag.Bool("debug", false, "Debug Mode")
 var receiveCheckFlag = flag.String("receiveCheck", "", "Receive Mode (Check)")
 var receiveFlag = flag.String("receive", "", "Receive Mode")
 var timestampFlag = flag.String("timestamp", "", "Timestamp for Receive Mode")
@@ -156,6 +157,13 @@ func main() {
 		os.Exit(1)
 	}
 	setLoggingDefaults()
+
+	if *debugFlag {
+		*verboseFlag = true
+		*quietFlag = false
+	} else if *verboseFlag {
+		*quietFlag = false
+	}
 
 	flag.Parse()
 	if *receiveCheckFlag != "" {

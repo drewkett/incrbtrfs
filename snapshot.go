@@ -75,7 +75,7 @@ func (snapshotLoc SnapshotLoc) clean(interval Interval, now time.Time, timestamp
 }
 
 func (snapshotLoc SnapshotLoc) CleanUp(nowTimestamp Timestamp, timestamps []Timestamp) (err error) {
-	if *verboseFlag {
+	if *debugFlag {
 		log.Println("Running Clean Up")
 	}
 	now, err := parseTimestamp(nowTimestamp)
@@ -115,16 +115,16 @@ func (snapshotLoc SnapshotLoc) CleanUp(nowTimestamp Timestamp, timestamps []Time
 }
 
 func (snapshotLoc SnapshotLoc) ReceiveAndCleanUp(in io.Reader, timestamp Timestamp, cw CmdWatcher) {
-	if *verboseFlag {
+	if *debugFlag {
 		log.Println("ReceiveAndCleanup")
 	}
 	subCW := NewCmdWatcher()
 	go ReceiveSnapshot(in, snapshotLoc.Directory, subCW)
-	if *verboseFlag {
+	if *debugFlag {
 		log.Println("ReceiveAndCleanup: go ReceiveSnapshot")
 	}
 	err := <-subCW.Started
-	if *verboseFlag {
+	if *debugFlag {
 		log.Println("ReceiveAndCleanup: Receive Started")
 	}
 	if err != nil {
@@ -132,15 +132,15 @@ func (snapshotLoc SnapshotLoc) ReceiveAndCleanUp(in io.Reader, timestamp Timesta
 		cw.Done <- err
 		return
 	}
-	if *verboseFlag {
+	if *debugFlag {
 		log.Println("ReceiveAndCleanup: Started")
 	}
 	cw.Started <- nil
-	if *verboseFlag {
+	if *debugFlag {
 		log.Println("ReceiveAndCleanup: Sent Started")
 	}
 	err = <-subCW.Done
-	if *verboseFlag {
+	if *debugFlag {
 		log.Println("ReceiveAndCleanup: Receive Done")
 	}
 	if err != nil {

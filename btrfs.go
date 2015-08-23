@@ -31,7 +31,9 @@ func NewCmdWatcher() (cw CmdWatcher) {
 }
 
 func ReceiveSnapshot(in io.Reader, location string, watcher CmdWatcher) {
-	log.Println("ReceiveSnapshot")
+	if *debugFlag {
+		log.Println("ReceiveSnapshot")
+	}
 	var out bytes.Buffer
 	targetPath := path.Join(location, "timestamp")
 	err := os.MkdirAll(targetPath, 0700|os.ModeDir)
@@ -48,7 +50,9 @@ func ReceiveSnapshot(in io.Reader, location string, watcher CmdWatcher) {
 	receiveCmd.Stdin = in
 	receiveCmd.Stdout = &out
 	err = receiveCmd.Start()
-	log.Println("ReceiveSnapshot: Cmd Started")
+	if *debugFlag {
+		log.Println("ReceiveSnapshot: Cmd Started")
+	}
 	if err != nil {
 		if *verboseFlag {
 			log.Print(out.String())
@@ -58,9 +62,13 @@ func ReceiveSnapshot(in io.Reader, location string, watcher CmdWatcher) {
 		return
 	}
 	watcher.Started <- nil
-	log.Println("ReceiveSnapshot: Cmd Sent Started")
+	if *debugFlag {
+		log.Println("ReceiveSnapshot: Cmd Sent Started")
+	}
 	err = receiveCmd.Wait()
-	log.Println("ReceiveSnapshot: Cmd Wait")
+	if *debugFlag {
+		log.Println("ReceiveSnapshot: Cmd Wait")
+	}
 	if err != nil {
 		if _, errTmp := os.Stat(targetPath); !os.IsNotExist(errTmp) {
 			errTmp = DeleteSnapshot(targetPath)
