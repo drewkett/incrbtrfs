@@ -78,7 +78,7 @@ func (remote RemoteSnapshotsLoc) RemoteReceive(in io.Reader, timestamp Timestamp
 		if remote.User != "" {
 			sshPath = remote.User + "@" + sshPath
 		}
-		receiveArgs := []string{sshPath, "incrbtrfs", "-receive", remote.SnapshotsLoc.Directory, "-timestamp", string(timestamp)}
+		receiveArgs := []string{sshPath, remote.Exec, "-receive", remote.SnapshotsLoc.Directory, "-timestamp", string(timestamp)}
 		if *debugFlag {
 			receiveArgs = append(receiveArgs, "-debug")
 		} else if *verboseFlag {
