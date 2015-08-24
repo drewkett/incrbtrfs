@@ -11,7 +11,6 @@ import (
 	"os/signal"
 	"path"
 	"strconv"
-	"syscall"
 )
 
 type RemoteSnapshotsLoc struct {
@@ -55,6 +54,13 @@ func (remote RemoteSnapshotsLoc) GetTimestamps() (timestamps []Timestamp, err er
 		timestamps = append(timestamps, timestamp)
 	}
 	return
+}
+
+func PassSignal(cmd *exec.Cmd, c chan os.Signal) {
+	for {
+		sig := <-c
+		cmd.Process.Signal(sig)
+	}
 }
 
 func (remote RemoteSnapshotsLoc) RemoteReceive(in io.Reader, timestamp Timestamp, cw CmdWatcher) {
@@ -101,7 +107,8 @@ func (remote RemoteSnapshotsLoc) RemoteReceive(in io.Reader, timestamp Timestamp
 	if *debugFlag {
 		log.Println("RemoteReceive: Cmd Start")
 	}
-	signal.Ignore(syscall.SIGINT)
+	c := make(chan os.Signal)
+	PassSignal(cmd, c)
 	err := cmd.Start()
 	if err != nil {
 		if *debugFlag {
@@ -119,7 +126,7 @@ func (remote RemoteSnapshotsLoc) RemoteReceive(in io.Reader, timestamp Timestamp
 	if *debugFlag {
 		log.Println("RemoteReceive: Cmd Wait")
 	}
-	signal.Reset(syscall.SIGINT)
+	signal.Stop(c)
 	cw.Done <- err
 }
 
