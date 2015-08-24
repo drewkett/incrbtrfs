@@ -155,6 +155,7 @@ func (remote RemoteSnapshotsLoc) SendSnapshot(snapshot Snapshot, parent Timestam
 	if err != nil {
 		return
 	}
+	sendCW := RunCommand(sendCmd)
 
 	cw := NewCmdWatcher()
 	if remote.Host == "" {
@@ -165,21 +166,26 @@ func (remote RemoteSnapshotsLoc) SendSnapshot(snapshot Snapshot, parent Timestam
 
 	err = <-cw.Started
 	if err != nil {
-		log.Println("Error with btrfs receive")
+		log.Println("Error starting btrfs receive")
 		return
 	}
 
 	if *verboseFlag {
 		printCommand(sendCmd)
 	}
-	err = sendCmd.Run()
+	err = <-sendCW.Started
 	if err != nil {
-		log.Println("Error with btrfs send")
+		log.Println("Error starting btrfs send")
+		return
+	}
+	err = <-sendCW.Done
+	if err != nil {
+		log.Println("Error running btrfs send")
 		return
 	}
 	err = <-cw.Done
 	if err != nil {
-		log.Println("Error with btrfs receive")
+		log.Println("Error running btrfs receive")
 		return
 	}
 	return
