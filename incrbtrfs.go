@@ -5,7 +5,6 @@ import (
 	"flag"
 	"io/ioutil"
 	"log"
-	"net"
 	"os"
 	"os/exec"
 	"path"
@@ -48,15 +47,21 @@ type RemoteCheck struct {
 }
 
 func runRemoteCheck() {
-	timestampsDir := path.Join(*receiveCheckFlag, "timestamp")
-	err := os.MkdirAll(timestampsDir, 0700|os.ModeDir)
+	recvDir := *receiveCheckFlag
+	lock, err := NewDirLock(recvDir)
 	if err != nil {
-		log.Print(err.Error())
+		log.Println(err.Error())
+		os.Exit(1)
+	}
+	timestampsDir := path.Join(recvDir, "timestamp")
+	err = os.MkdirAll(timestampsDir, 0700|os.ModeDir)
+	if err != nil {
+		log.Println(err.Error())
 		os.Exit(1)
 	}
 	fis, err := ioutil.ReadDir(timestampsDir)
 	if err != nil {
-		log.Print(err.Error())
+		log.Println(err.Error())
 		os.Exit(1)
 	}
 	var checkStr RemoteCheck
@@ -74,12 +79,17 @@ func runRemoteCheck() {
 	}
 	data, err := json.Marshal(checkStr)
 	if err != nil {
-		log.Print(err)
+		log.Println(err.Error())
 		os.Exit(1)
 	}
 	n, err := os.Stdout.Write(data)
 	if err != nil || n != len(data) {
-		log.Print(err)
+		log.Println(err.Error())
+		os.Exit(1)
+	}
+	err = lock.Unlock()
+	if err != nil {
+		log.Println(err.Error())
 		os.Exit(1)
 	}
 }
@@ -96,8 +106,14 @@ func runRemote() {
 		Daily:   *dailyFlag,
 		Weekly:  *weeklyFlag,
 		Monthly: *monthlyFlag}
+
+	lock, err := NewDirLock(snapshotsLoc.Directory)
+	if err != nil {
+		log.Println(err.Error())
+		return
+	}
 	timestamp := Timestamp(*timestampFlag)
-	_, err := parseTimestamp(timestamp)
+	_, err = parseTimestamp(timestamp)
 	if err != nil {
 		log.Println(err.Error())
 		os.Exit(1)
@@ -118,6 +134,11 @@ func runRemote() {
 	if *debugFlag {
 		log.Println("runRemote: ReceiveAndCleanUp Done")
 	}
+	if err != nil {
+		log.Println(err.Error())
+		os.Exit(1)
+	}
+	err = lock.Unlock()
 	if err != nil {
 		log.Println(err.Error())
 		os.Exit(1)
@@ -154,11 +175,6 @@ func runLocal() {
 
 }
 
-func getLock() (err error) {
-	_, err = net.Listen("unix", "@incrbtrfs")
-	return
-}
-
 func setLoggingDefaults() {
 	log.SetOutput(os.Stderr)
 	log.SetFlags(0)
@@ -169,11 +185,6 @@ func setRemoteLogging() {
 }
 
 func main() {
-	err := getLock()
-	if err != nil {
-		log.Println("Error acquiring local lock")
-		os.Exit(1)
-	}
 	setLoggingDefaults()
 
 	flag.Parse()

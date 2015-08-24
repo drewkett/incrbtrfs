@@ -30,6 +30,10 @@ func (subvolume Subvolume) Print() {
 }
 
 func (subvolume Subvolume) RunSnapshot(timestamp Timestamp) (err error) {
+	lock, err := NewDirLock(subvolume.SnapshotsLoc.Directory)
+	if err != nil {
+		return
+	}
 	snapshot := Snapshot{subvolume.SnapshotsLoc, timestamp}
 	btrfsCmd := exec.Command(btrfsBin, "subvolume", "snapshot", "-r", subvolume.Directory, snapshot.Path())
 	if *verboseFlag {
@@ -56,7 +60,14 @@ func (subvolume Subvolume) RunSnapshot(timestamp Timestamp) (err error) {
 	}
 	for _, remote := range subvolume.Remotes {
 		var remoteTimestamps []Timestamp
+		var lock DirLock
 		if remote.Host == "" {
+			lock, err = NewDirLock(remote.SnapshotsLoc.Directory)
+			if err != nil {
+				log.Println(err.Error())
+				err = nil
+				continue
+			}
 			remoteTimestamps, err = remote.SnapshotsLoc.ReadTimestampsDir()
 			if err != nil {
 				log.Println(err.Error())
@@ -82,11 +93,21 @@ func (subvolume Subvolume) RunSnapshot(timestamp Timestamp) (err error) {
 			err = nil
 			continue
 		}
+		if remote.Host == "" {
+			err = lock.Unlock()
+			if err != nil {
+				log.Println(err.Error())
+				err = nil
+			}
+		}
 	}
 	_, err = subvolume.SnapshotsLoc.CleanUp(timestamp, timestamps)
 	if err != nil {
 		return
 	}
-
+	err = lock.Unlock()
+	if err != nil {
+		return
+	}
 	return
 }
