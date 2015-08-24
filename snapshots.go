@@ -151,6 +151,9 @@ func (snapshotsLoc SnapshotsLoc) ReceiveSnapshot(in io.Reader, timestamp Timesta
 			log.Println("ReceiveSnapshot: Cmd Wait")
 		}
 		if err != nil {
+			if *debugFlag {
+				log.Printf("ReceiveSnapshot: Error '%s'", err.Error())
+			}
 			snapshot := Snapshot{snapshotsLoc, timestamp}
 			if _, errTmp := os.Stat(snapshot.Path()); !os.IsNotExist(errTmp) {
 				errTmp = snapshot.DeleteSnapshot()
