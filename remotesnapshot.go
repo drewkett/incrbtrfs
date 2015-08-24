@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -136,7 +135,6 @@ func (remote RemoteSnapshotsLoc) RemoteReceive(in io.Reader, timestamp Timestamp
 }
 
 func (remote RemoteSnapshotsLoc) SendSnapshot(snapshot Snapshot, parent Timestamp) (err error) {
-	var sendErr bytes.Buffer
 	var sendCmd *exec.Cmd
 	if parent == "" {
 		if *verboseFlag {
@@ -150,7 +148,9 @@ func (remote RemoteSnapshotsLoc) SendSnapshot(snapshot Snapshot, parent Timestam
 		parentPath := path.Join(path.Dir(snapshot.Path()), string(parent))
 		sendCmd = exec.Command(btrfsBin, "send", "-p", parentPath, snapshot.Path())
 	}
-	sendCmd.Stderr = &sendErr
+	if *verboseFlag {
+		sendCmd.Stderr = os.Stderr
+	}
 	sendOut, err := sendCmd.StdoutPipe()
 	if err != nil {
 		return
@@ -175,7 +175,6 @@ func (remote RemoteSnapshotsLoc) SendSnapshot(snapshot Snapshot, parent Timestam
 	err = sendCmd.Run()
 	if err != nil {
 		log.Println("Error with btrfs send")
-		log.Print(sendErr.String())
 		return
 	}
 	err = <-cw.Done
