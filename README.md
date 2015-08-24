@@ -49,3 +49,6 @@ The program can be run by passing the config file as an argument
 ```sh
 incrbtrfs sample.cfg
 ```
+
+###Limitations
+- If the btrfs receive command fails with message `ERROR: could not find parent subvolume`, there is currently no way to recover without manually deleting folder on the receive side that is supposedly a parent, but isn't. This is usually from a previously failed send/receive.
