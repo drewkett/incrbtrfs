@@ -130,6 +130,9 @@ func (remote RemoteSnapshotsLoc) RemoteReceive(in io.Reader, timestamp Timestamp
 	}
 	signal.Stop(c)
 	cw.Done <- err
+	if *debugFlag {
+		log.Println("RemoteReceive: End")
+	}
 }
 
 func (remote RemoteSnapshotsLoc) SendSnapshot(snapshot Snapshot, parent Timestamp) (err error) {
