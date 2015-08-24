@@ -14,6 +14,7 @@ import (
 
 //TODO add comments
 //TODO check signal handling
+//TODO create file signifying successful snapshots
 
 const btrfsBin string = "/sbin/btrfs"
 const subDir string = ".incrbtrfs"
