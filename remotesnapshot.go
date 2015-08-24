@@ -8,8 +8,10 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path"
 	"strconv"
+	"syscall"
 )
 
 type RemoteSnapshotsLoc struct {
@@ -99,6 +101,7 @@ func (remote RemoteSnapshotsLoc) RemoteReceive(in io.Reader, timestamp Timestamp
 	if *debugFlag {
 		log.Println("RemoteReceive: Cmd Start")
 	}
+	signal.Ignore(syscall.SIGINT)
 	err := cmd.Start()
 	if err != nil {
 		if *debugFlag {
@@ -116,6 +119,7 @@ func (remote RemoteSnapshotsLoc) RemoteReceive(in io.Reader, timestamp Timestamp
 	if *debugFlag {
 		log.Println("RemoteReceive: Cmd Wait")
 	}
+	signal.Reset(syscall.SIGINT)
 	cw.Done <- err
 }
 
