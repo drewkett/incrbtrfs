@@ -102,12 +102,11 @@ func runRemote() {
 		log.Println(err.Error())
 		os.Exit(1)
 	}
-	cw := NewCmdWatcher()
 	if *debugFlag {
 		log.Println("runRemote: ReceiveAndCleanUp")
 	}
-	go snapshotsLoc.ReceiveAndCleanUp(os.Stdin, timestamp, cw)
-	err = <-cw.Started
+	runner := snapshotsLoc.ReceiveAndCleanUp(os.Stdin, timestamp)
+	err = <-runner.Started
 	if *debugFlag {
 		log.Println("runRemote: ReceiveAndCleanUp Started")
 	}
@@ -115,7 +114,7 @@ func runRemote() {
 		log.Println(err.Error())
 		os.Exit(1)
 	}
-	err = <-cw.Done
+	err = <-runner.Done
 	if *debugFlag {
 		log.Println("runRemote: ReceiveAndCleanUp Done")
 	}

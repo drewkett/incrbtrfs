@@ -5,39 +5,37 @@ import (
 	"os/exec"
 )
 
-type CmdWatcher struct {
+type CmdRunner struct {
 	Started chan error
 	Done    chan error
 	Signal  chan os.Signal
 }
 
-func NewCmdWatcher() (cw CmdWatcher) {
-	cw.Started = make(chan error)
-	cw.Done = make(chan error)
+func NewCmdRunner() (runner CmdRunner) {
+	runner.Started = make(chan error)
+	runner.Done = make(chan error)
+	runner.Signal = make(chan os.Signal)
 	return
 }
 
-func RunCommand(cmd *exec.Cmd) CmdWatcher {
-	var cw CmdWatcher
-	cw.Started = make(chan error)
-	cw.Done = make(chan error)
-	cw.Signal = make(chan os.Signal)
-	go func(cw *CmdWatcher, cmd *exec.Cmd) {
+func RunCommand(cmd *exec.Cmd) CmdRunner {
+	runner := NewCmdRunner()
+	go func() {
 		err := cmd.Start()
+		runner.Started <- err
 		if err != nil {
-			cw.Started <- err
-			cw.Done <- err
+			runner.Done <- err
+			return
 		}
-		cw.Started <- nil
-		cw.Done <- cmd.Wait()
-	}(&cw, cmd)
-	go func(cw *CmdWatcher, cmd *exec.Cmd) {
+		runner.Done <- cmd.Wait()
+	}()
+	go func() {
 		for {
 			select {
-			case sig := <-cw.Signal:
+			case sig := <-runner.Signal:
 				cmd.Process.Signal(sig)
 			}
 		}
-	}(&cw, cmd)
-	return cw
+	}()
+	return runner
 }

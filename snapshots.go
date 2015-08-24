@@ -107,102 +107,108 @@ func (snapshotsLoc SnapshotsLoc) CleanUp(nowTimestamp Timestamp, timestamps []Ti
 	return
 }
 
-func (snapshotsLoc SnapshotsLoc) ReceiveSnapshot(in io.Reader, timestamp Timestamp, watcher CmdWatcher) {
-	if *debugFlag {
-		log.Println("ReceiveSnapshot")
-	}
-	targetPath := path.Join(snapshotsLoc.Directory, "timestamp")
-	err := os.MkdirAll(targetPath, 0700|os.ModeDir)
-	if *debugFlag {
-		log.Println("ReceiveSnapshot: MkdirAll")
-	}
-	if err != nil {
-		watcher.Started <- err
-		watcher.Done <- err
-		return
-	}
-	receiveCmd := exec.Command(btrfsBin, "receive", targetPath)
-	if *verboseFlag {
-		printCommand(receiveCmd)
-	}
-	receiveCmd.Stdin = in
-	if *verboseFlag {
-		receiveCmd.Stdout = os.Stderr
-		receiveCmd.Stderr = os.Stderr
-	}
-	err = receiveCmd.Start()
-	if *debugFlag {
-		log.Println("ReceiveSnapshot: Cmd Started")
-	}
-	if err != nil {
-		watcher.Started <- err
-		watcher.Done <- err
-		return
-	}
-	watcher.Started <- nil
-	if *debugFlag {
-		log.Println("ReceiveSnapshot: Cmd Sent Started")
-	}
-	err = receiveCmd.Wait()
-	if *debugFlag {
-		log.Println("ReceiveSnapshot: Cmd Wait")
-	}
-	if err != nil {
-		snapshot := Snapshot{snapshotsLoc, timestamp}
-		if _, errTmp := os.Stat(snapshot.Path()); !os.IsNotExist(errTmp) {
-			errTmp = snapshot.DeleteSnapshot()
+func (snapshotsLoc SnapshotsLoc) ReceiveSnapshot(in io.Reader, timestamp Timestamp) (retRunner CmdRunner) {
+	retRunner = NewCmdRunner()
+	go func() {
+		if *debugFlag {
+			log.Println("ReceiveSnapshot")
 		}
-	}
-	watcher.Done <- err
+		targetPath := path.Join(snapshotsLoc.Directory, "timestamp")
+		err := os.MkdirAll(targetPath, 0700|os.ModeDir)
+		if *debugFlag {
+			log.Println("ReceiveSnapshot: MkdirAll")
+		}
+		if err != nil {
+			retRunner.Started <- err
+			retRunner.Done <- err
+			return
+		}
+		receiveCmd := exec.Command(btrfsBin, "receive", targetPath)
+		if *verboseFlag {
+			printCommand(receiveCmd)
+		}
+		receiveCmd.Stdin = in
+		if *verboseFlag {
+			receiveCmd.Stdout = os.Stderr
+			receiveCmd.Stderr = os.Stderr
+		}
+		runner := RunCommand(receiveCmd)
+		err = <-runner.Started
+		if *debugFlag {
+			log.Println("ReceiveSnapshot: Cmd Started")
+		}
+		if err != nil {
+			retRunner.Started <- err
+			retRunner.Done <- err
+			return
+		}
+		retRunner.Started <- nil
+		if *debugFlag {
+			log.Println("ReceiveSnapshot: Cmd Sent Started")
+		}
+		err = <-runner.Done
+		if *debugFlag {
+			log.Println("ReceiveSnapshot: Cmd Wait")
+		}
+		if err != nil {
+			snapshot := Snapshot{snapshotsLoc, timestamp}
+			if _, errTmp := os.Stat(snapshot.Path()); !os.IsNotExist(errTmp) {
+				errTmp = snapshot.DeleteSnapshot()
+			}
+		}
+		retRunner.Done <- err
+	}()
 	return
 }
 
-func (snapshotsLoc SnapshotsLoc) ReceiveAndCleanUp(in io.Reader, timestamp Timestamp, cw CmdWatcher) {
-	if *debugFlag {
-		log.Println("ReceiveAndCleanup")
-	}
-	subCW := NewCmdWatcher()
-	go snapshotsLoc.ReceiveSnapshot(in, timestamp, subCW)
-	if *debugFlag {
-		log.Println("ReceiveAndCleanup: go ReceiveSnapshot")
-	}
-	err := <-subCW.Started
-	if *debugFlag {
-		log.Println("ReceiveAndCleanup: Receive Started")
-	}
-	if err != nil {
-		cw.Started <- err
-		cw.Done <- err
-		return
-	}
-	if *debugFlag {
-		log.Println("ReceiveAndCleanup: Started")
-	}
-	cw.Started <- nil
-	if *debugFlag {
-		log.Println("ReceiveAndCleanup: Sent Started")
-	}
-	err = <-subCW.Done
-	if *debugFlag {
-		log.Println("ReceiveAndCleanup: Receive Done")
-	}
-	if err != nil {
-		cw.Done <- err
-		return
-	}
-	if *debugFlag {
-		log.Println("ReceiveAndCleanup: ReadTimestampsDir")
-	}
-	timestamps, err := snapshotsLoc.ReadTimestampsDir()
-	if err != nil {
-		cw.Done <- err
-		return
-	}
-	if *debugFlag {
-		log.Println("ReceiveAndCleanup: CleanUp")
-	}
-	_, err = snapshotsLoc.CleanUp(timestamp, timestamps)
-	cw.Done <- err
+func (snapshotsLoc SnapshotsLoc) ReceiveAndCleanUp(in io.Reader, timestamp Timestamp) (retRunner CmdRunner) {
+	retRunner = NewCmdRunner()
+	go func() {
+		if *debugFlag {
+			log.Println("ReceiveAndCleanup")
+		}
+		runner := snapshotsLoc.ReceiveSnapshot(in, timestamp)
+		if *debugFlag {
+			log.Println("ReceiveAndCleanup: ReceiveSnapshot")
+		}
+		err := <-runner.Started
+		if *debugFlag {
+			log.Println("ReceiveAndCleanup: Receive Started")
+		}
+		if err != nil {
+			retRunner.Started <- err
+			retRunner.Done <- err
+			return
+		}
+		if *debugFlag {
+			log.Println("ReceiveAndCleanup: Started")
+		}
+		retRunner.Started <- nil
+		if *debugFlag {
+			log.Println("ReceiveAndCleanup: Sent Started")
+		}
+		err = <-runner.Done
+		if *debugFlag {
+			log.Println("ReceiveAndCleanup: Receive Done")
+		}
+		if err != nil {
+			retRunner.Done <- err
+			return
+		}
+		if *debugFlag {
+			log.Println("ReceiveAndCleanup: ReadTimestampsDir")
+		}
+		timestamps, err := snapshotsLoc.ReadTimestampsDir()
+		if err != nil {
+			retRunner.Done <- err
+			return
+		}
+		if *debugFlag {
+			log.Println("ReceiveAndCleanup: CleanUp")
+		}
+		_, err = snapshotsLoc.CleanUp(timestamp, timestamps)
+		retRunner.Done <- err
+	}()
 	return
 }
 
