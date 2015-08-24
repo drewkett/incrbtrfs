@@ -13,7 +13,6 @@ import (
 )
 
 //TODO add comments
-//TODO add per directory locking
 //TODO check signal handling
 
 const btrfsBin string = "/sbin/btrfs"
