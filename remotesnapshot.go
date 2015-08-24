@@ -128,7 +128,7 @@ func (remote RemoteSnapshotsLoc) RemoteReceive(in io.Reader, timestamp Timestamp
 	if *debugFlag {
 		log.Println("RemoteReceive: Cmd Wait Done")
 	}
-	signal.Stop(c)
+	// signal.Stop(c)
 	cw.Done <- err
 	if *debugFlag {
 		log.Println("RemoteReceive: End")
