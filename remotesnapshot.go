@@ -107,8 +107,9 @@ func (remote RemoteSnapshotsLoc) RemoteReceive(in io.Reader, timestamp Timestamp
 	if *debugFlag {
 		log.Println("RemoteReceive: Cmd Start")
 	}
-	c := make(chan os.Signal)
+	c := make(chan os.Signal, 1)
 	PassSignal(cmd, c)
+	signal.Notify(c, os.Interrupt, os.Kill)
 	err := cmd.Start()
 	if err != nil {
 		if *debugFlag {
