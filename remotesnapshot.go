@@ -14,6 +14,7 @@ import (
 type RemoteSnapshotsLoc struct {
 	Host         string
 	User         string
+	Exec         string
 	SnapshotsLoc SnapshotsLoc
 }
 
@@ -23,7 +24,7 @@ func (remote RemoteSnapshotsLoc) GetTimestamps() (timestamps []Timestamp, err er
 		sshPath = remote.User + "@" + sshPath
 	}
 	var receiveCheckOut []byte
-	receiveCheckCmd := exec.Command("ssh", sshPath, "incrbtrfs", "-receiveCheck", remote.SnapshotsLoc.Directory)
+	receiveCheckCmd := exec.Command("ssh", sshPath, remote.Exec, "-receiveCheck", remote.SnapshotsLoc.Directory)
 	if *verboseFlag {
 		receiveCheckCmd.Stderr = os.Stderr
 	}
