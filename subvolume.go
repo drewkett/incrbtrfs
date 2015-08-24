@@ -30,6 +30,10 @@ func (subvolume Subvolume) Print() {
 }
 
 func (subvolume Subvolume) RunSnapshot(timestamp Timestamp) (err error) {
+	//TODO Move Lock to after snapshot. To allow snapshots if a previous long send
+	//is still running. Need to implement some guarantee that two instances don't
+	//try to create the same snapshot at the same time and then delete cause one
+	//will fail
 	lock, err := NewDirLock(subvolume.SnapshotsLoc.Directory)
 	if err != nil {
 		return
