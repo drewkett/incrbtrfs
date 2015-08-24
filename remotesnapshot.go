@@ -173,15 +173,17 @@ func (remote RemoteSnapshotsLoc) SendSnapshot(snapshot Snapshot, parent Timestam
 		log.Println("Error starting btrfs send")
 		return
 	}
-	err = <-sendCW.Done
-	if err != nil {
-		log.Println("Error running btrfs send")
+	select {
+	case err = <-sendCW.Done:
+		if err != nil {
+			log.Println("Error running btrfs send")
+		}
+		return
+	case err = <-cw.Done:
+		if err != nil {
+			log.Println("Error running btrfs receive")
+		}
+		sendCW.Signal <- os.Kill
 		return
 	}
-	err = <-cw.Done
-	if err != nil {
-		log.Println("Error running btrfs receive")
-		return
-	}
-	return
 }
