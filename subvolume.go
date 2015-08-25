@@ -58,6 +58,10 @@ func (subvolume Subvolume) RunSnapshot() (err error) {
 		}
 		return
 	}
+	err = snapshot.TagSuccess()
+	if err != nil {
+		return
+	}
 
 	timestamps, err := subvolume.SnapshotsLoc.ReadTimestampsDir()
 	if err != nil {

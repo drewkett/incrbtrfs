@@ -26,3 +26,15 @@ func (s Snapshot) DeleteSnapshot() (err error) {
 	err = btrfsCmd.Run()
 	return
 }
+
+func (s Snapshot) TagSuccess() (err error) {
+	successPath := path.Join(s.snapshotsLoc.Directory, "success")
+	err = os.MkdirAll(successPath, dirMode)
+	if err != nil {
+		return
+	}
+	dstPath := path.Join(successPath, string(s.timestamp))
+	srcPath := path.Join("..", "timestamp", string(s.timestamp))
+	err = os.Symlink(srcPath, dstPath)
+	return
+}
