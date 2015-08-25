@@ -20,6 +20,7 @@ const btrfsBin string = "/sbin/btrfs"
 const subDir string = ".incrbtrfs"
 const timeFormat string = "20060102_150405"
 const version int = 3
+const dirMode os.FileMode = 0700 | os.ModeDir
 
 var quietFlag = flag.Bool("quiet", false, "Quiet Mode")
 var verboseFlag = flag.Bool("verbose", false, "Verbose Mode")
@@ -54,7 +55,7 @@ func runRemoteCheck() {
 		os.Exit(1)
 	}
 	timestampsDir := path.Join(recvDir, "timestamp")
-	err = os.MkdirAll(timestampsDir, 0700|os.ModeDir)
+	err = os.MkdirAll(timestampsDir, dirMode)
 	if err != nil {
 		log.Println(err.Error())
 		os.Exit(1)

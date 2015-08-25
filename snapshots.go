@@ -34,7 +34,7 @@ func removeAllSymlinks(dir string) (err error) {
 
 func (snapshotsLoc SnapshotsLoc) clean(interval Interval, now time.Time, timestamps []Timestamp) (keptTimestampsMap TimestampMap, err error) {
 	dir := path.Join(snapshotsLoc.Directory, string(interval))
-	err = os.MkdirAll(dir, os.ModeDir|0700)
+	err = os.MkdirAll(dir, dirMode)
 	if err != nil {
 		return
 	}
@@ -114,7 +114,7 @@ func (snapshotsLoc SnapshotsLoc) ReceiveSnapshot(in io.Reader, timestamp Timesta
 			log.Println("ReceiveSnapshot")
 		}
 		targetPath := path.Join(snapshotsLoc.Directory, "timestamp")
-		err := os.MkdirAll(targetPath, 0700|os.ModeDir)
+		err := os.MkdirAll(targetPath, dirMode)
 		if *debugFlag {
 			log.Println("ReceiveSnapshot: MkdirAll")
 		}
@@ -217,7 +217,7 @@ func (snapshotsLoc SnapshotsLoc) ReceiveAndCleanUp(in io.Reader, timestamp Times
 
 func (snapshotsLoc SnapshotsLoc) ReadTimestampsDir() (timestamps []Timestamp, err error) {
 	timestampsDir := path.Join(snapshotsLoc.Directory, "timestamp")
-	os.MkdirAll(timestampsDir, 0700|os.ModeDir)
+	os.MkdirAll(timestampsDir, dirMode)
 	fileInfos, err := ioutil.ReadDir(timestampsDir)
 	if err != nil {
 		return

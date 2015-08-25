@@ -13,7 +13,7 @@ type DirLock struct {
 }
 
 func NewDirLock(dir string) (lock DirLock, err error) {
-	err = os.MkdirAll(dir, 0700|os.ModeDir)
+	err = os.MkdirAll(dir, dirMode)
 	if err != nil {
 		return
 	}
