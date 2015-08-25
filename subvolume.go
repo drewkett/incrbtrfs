@@ -29,7 +29,7 @@ func (subvolume Subvolume) Print() {
 
 }
 
-func (subvolume Subvolume) RunSnapshot(timestamp Timestamp) (err error) {
+func (subvolume Subvolume) RunSnapshot() (err error) {
 	//TODO Move Lock to after snapshot. To allow snapshots if a previous long send
 	//is still running. Need to implement some guarantee that two instances don't
 	//try to create the same snapshot at the same time and then delete cause one
@@ -38,6 +38,7 @@ func (subvolume Subvolume) RunSnapshot(timestamp Timestamp) (err error) {
 	if err != nil {
 		return
 	}
+	timestamp := getCurrentTimestamp()
 	snapshot := Snapshot{subvolume.SnapshotsLoc, timestamp}
 	btrfsCmd := exec.Command(btrfsBin, "subvolume", "snapshot", "-r", subvolume.Directory, snapshot.Path())
 	if *verboseFlag {

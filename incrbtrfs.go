@@ -150,7 +150,6 @@ func runLocal() {
 		log.Println("One Argument Required")
 		os.Exit(1)
 	}
-	currentTimestamp := getCurrentTimestamp()
 	config, err := parseFile(flag.Arg(0))
 	if err != nil {
 		log.Println("Erroring parsing file")
@@ -163,7 +162,7 @@ func runLocal() {
 		if !(*quietFlag) {
 			subvolume.Print()
 		}
-		err = subvolume.RunSnapshot(currentTimestamp)
+		err = subvolume.RunSnapshot()
 		if err != nil {
 			log.Println(err)
 			isErr = true
