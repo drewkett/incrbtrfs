@@ -1,9 +1,8 @@
 package main
 
 import (
-	"path"
-
 	"github.com/BurntSushi/toml"
+	"path"
 )
 
 type OptionalLimits struct {
@@ -21,9 +20,10 @@ type Config struct {
 		}
 	}
 	Snapshot []struct {
-		Directory string
-		Limits    OptionalLimits
-		Remote    []struct {
+		Directory   string
+		Destination string
+		Limits      OptionalLimits
+		Remote      []struct {
 			Host      string
 			User      string
 			Exec      string
@@ -44,9 +44,15 @@ func parseConfig(config Config) (subvolumes []Subvolume) {
 	remoteDefaults := localDefaults.Merge(config.Defaults.Remote.Limits)
 	for _, snapshot := range config.Snapshot {
 		var subvolume Subvolume
+		var destination string
 		subvolume.Directory = snapshot.Directory
+		if snapshot.Destination == "" {
+			destination = path.Join(subvolume.Directory, subDir)
+		} else {
+			destination = snapshot.Destination
+		}
 		subvolume.SnapshotsLoc = SnapshotsLoc{
-			Directory: path.Join(subvolume.Directory, subDir),
+			Directory: destination,
 			Limits:    localDefaults.Merge(snapshot.Limits)}
 		for _, remote := range snapshot.Remote {
 			var remoteSnapshotsLoc RemoteSnapshotsLoc
