@@ -14,8 +14,10 @@ type Subvolume struct {
 }
 
 func (subvolume Subvolume) Print() {
-	log.Printf("Subvolume='%s'", subvolume.Directory)
-	log.Printf("Snapshot Dir='%s' (%s)\n", subvolume.SnapshotsLoc.Directory, subvolume.SnapshotsLoc.Limits.String())
+	if *verboseFlag {
+		log.Printf("Subvolume='%s'", subvolume.Directory)
+		log.Printf("Snapshot Dir='%s' (%s)\n", subvolume.SnapshotsLoc.Directory, subvolume.SnapshotsLoc.Limits.String())
+	}
 	for _, remote := range subvolume.Remotes {
 		dst := remote.SnapshotsLoc.Directory
 		if remote.Host != "" {
@@ -24,7 +26,9 @@ func (subvolume Subvolume) Print() {
 				dst = strings.Join([]string{remote.User, dst}, "@")
 			}
 		}
-		log.Printf("Remote Dir='%s' (%s)\n", dst, remote.SnapshotsLoc.Limits.String())
+		if *verboseFlag {
+			log.Printf("Remote Dir='%s' (%s)\n", dst, remote.SnapshotsLoc.Limits.String())
+		}
 	}
 
 }
