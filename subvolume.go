@@ -14,7 +14,7 @@ type Subvolume struct {
 }
 
 func (subvolume Subvolume) Print() {
-	if *verboseFlag {
+	if verbosity > 1 {
 		log.Printf("Subvolume='%s'", subvolume.Directory)
 		log.Printf("Snapshot Dir='%s' (%s)\n", subvolume.SnapshotsLoc.Directory, subvolume.SnapshotsLoc.Limits.String())
 	}
@@ -26,7 +26,7 @@ func (subvolume Subvolume) Print() {
 				dst = strings.Join([]string{remote.User, dst}, "@")
 			}
 		}
-		if *verboseFlag {
+		if verbosity > 1 {
 			log.Printf("Remote Dir='%s' (%s)\n", dst, remote.SnapshotsLoc.Limits.String())
 		}
 	}
@@ -45,7 +45,7 @@ func (subvolume Subvolume) RunSnapshot() (err error) {
 	timestamp := getCurrentTimestamp()
 	snapshot := Snapshot{subvolume.SnapshotsLoc, timestamp}
 	btrfsCmd := exec.Command(btrfsBin, "subvolume", "snapshot", "-r", subvolume.Directory, snapshot.Path())
-	if *verboseFlag {
+	if verbosity > 1 {
 		printCommand(btrfsCmd)
 		btrfsCmd.Stdout = os.Stderr
 		btrfsCmd.Stderr = os.Stderr
@@ -55,7 +55,7 @@ func (subvolume Subvolume) RunSnapshot() (err error) {
 		if _, errTmp := os.Stat(snapshot.Path()); !os.IsNotExist(errTmp) {
 			errTmp = snapshot.DeleteSnapshot()
 			if errTmp != nil {
-				if !(*quietFlag) {
+				if verbosity > 0 {
 					log.Println("Failed to deleted to failed snapshot")
 				}
 			}
@@ -92,7 +92,7 @@ func (subvolume Subvolume) RunSnapshot() (err error) {
 			}
 		}
 		parentTimestamp := calcParent(timestamps, remoteTimestamps)
-		if *verboseFlag && parentTimestamp != "" {
+		if verbosity > 0 && parentTimestamp != "" {
 			log.Printf("Parent = %s\n", string(parentTimestamp))
 		}
 		err = remote.SendSnapshot(snapshot, parentTimestamp)

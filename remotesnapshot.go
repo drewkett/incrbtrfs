@@ -25,7 +25,7 @@ func (remote RemoteSnapshotsLoc) GetTimestamps() (timestamps []Timestamp, err er
 	}
 	var receiveCheckOut []byte
 	receiveCheckCmd := exec.Command("ssh", sshPath, remote.Exec, "-receiveCheck", remote.SnapshotsLoc.Directory)
-	if *verboseFlag {
+	if verbosity > 1 {
 		receiveCheckCmd.Stderr = os.Stderr
 	}
 	receiveCheckOut, err = receiveCheckCmd.Output()
@@ -65,7 +65,7 @@ func PassSignal(cmd *exec.Cmd, c chan os.Signal) {
 func (remote RemoteSnapshotsLoc) RemoteReceive(in io.Reader, timestamp Timestamp) (retRunner CmdRunner) {
 	retRunner = NewCmdRunner()
 	go func() {
-		if *debugFlag {
+		if verbosity > 2 {
 			log.Println("RemoteReceive")
 		}
 		if remote.Host == "" {
@@ -79,11 +79,11 @@ func (remote RemoteSnapshotsLoc) RemoteReceive(in io.Reader, timestamp Timestamp
 			sshPath = remote.User + "@" + sshPath
 		}
 		receiveArgs := []string{sshPath, remote.Exec, "-receive", remote.SnapshotsLoc.Directory, "-timestamp", string(timestamp)}
-		if *debugFlag {
+		if verbosity > 2 {
 			receiveArgs = append(receiveArgs, "-debug")
-		} else if *verboseFlag {
+		} else if verbosity == 2 {
 			receiveArgs = append(receiveArgs, "-verbose")
-		} else if *quietFlag {
+		} else if verbosity == 0 {
 			receiveArgs = append(receiveArgs, "-quiet")
 		}
 		if remote.SnapshotsLoc.Limits.Hourly > 0 {
@@ -99,18 +99,18 @@ func (remote RemoteSnapshotsLoc) RemoteReceive(in io.Reader, timestamp Timestamp
 			receiveArgs = append(receiveArgs, "-monthly", strconv.Itoa(remote.SnapshotsLoc.Limits.Monthly))
 		}
 		cmd := exec.Command("ssh", receiveArgs...)
-		if *verboseFlag {
+		if verbosity > 1 {
 			printCommand(cmd)
 		}
 		cmd.Stdin = in
 		cmd.Stdout = os.Stderr
 		cmd.Stderr = os.Stderr
-		if *debugFlag {
+		if verbosity > 2 {
 			log.Println("RemoteReceive: Cmd Start")
 		}
 		err := cmd.Start()
 		if err != nil {
-			if *debugFlag {
+			if verbosity > 2 {
 				log.Println("RemoteReceive: Cmd Start Error")
 			}
 			retRunner.Started <- err
@@ -118,16 +118,16 @@ func (remote RemoteSnapshotsLoc) RemoteReceive(in io.Reader, timestamp Timestamp
 			return
 		}
 		retRunner.Started <- nil
-		if *debugFlag {
+		if verbosity > 2 {
 			log.Println("RemoteReceive: Cmd Wait")
 		}
 		err = cmd.Wait()
-		if *debugFlag {
+		if verbosity > 2 {
 			log.Println("RemoteReceive: Cmd Wait Done")
 		}
 		// signal.Stop(c)
 		retRunner.Done <- err
-		if *debugFlag {
+		if verbosity > 2 {
 			log.Println("RemoteReceive: End")
 		}
 	}()
@@ -137,18 +137,18 @@ func (remote RemoteSnapshotsLoc) RemoteReceive(in io.Reader, timestamp Timestamp
 func (remote RemoteSnapshotsLoc) SendSnapshot(snapshot Snapshot, parent Timestamp) (err error) {
 	var sendCmd *exec.Cmd
 	if parent == "" {
-		if *verboseFlag {
+		if verbosity > 1 {
 			log.Println("Performing full send/receive")
 		}
 		sendCmd = exec.Command(btrfsBin, "send", snapshot.Path())
 	} else {
-		if *verboseFlag {
+		if verbosity > 1 {
 			log.Println("Performing incremental send/receive")
 		}
 		parentPath := path.Join(path.Dir(snapshot.Path()), string(parent))
 		sendCmd = exec.Command(btrfsBin, "send", "-p", parentPath, snapshot.Path())
 	}
-	if *verboseFlag {
+	if verbosity > 1 {
 		sendCmd.Stderr = os.Stderr
 	}
 	sendOut, err := sendCmd.StdoutPipe()
@@ -170,7 +170,7 @@ func (remote RemoteSnapshotsLoc) SendSnapshot(snapshot Snapshot, parent Timestam
 		return
 	}
 
-	if *verboseFlag {
+	if verbosity > 1 {
 		printCommand(sendCmd)
 	}
 	err = <-sendRunner.Started

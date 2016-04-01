@@ -63,7 +63,7 @@ func (snapshotsLoc SnapshotsLoc) clean(interval Interval, now time.Time, timesta
 		keptTimestampsMap[timestamp] = true
 		src := path.Join("..", "timestamp", string(timestamp))
 		dst := path.Join(dir, strconv.Itoa(i))
-		if *verboseFlag {
+		if verbosity > 1 {
 			log.Printf("Symlink '%s' => '%s'\n", dst, src)
 		}
 		err = os.Symlink(src, dst)
@@ -75,7 +75,7 @@ func (snapshotsLoc SnapshotsLoc) clean(interval Interval, now time.Time, timesta
 }
 
 func (snapshotsLoc SnapshotsLoc) CleanUp(nowTimestamp Timestamp, timestamps []Timestamp) (keptTimestamps []Timestamp, err error) {
-	if *debugFlag {
+	if verbosity > 2 {
 		log.Println("Running Clean Up")
 	}
 	now, err := parseTimestamp(nowTimestamp)
@@ -110,12 +110,12 @@ func (snapshotsLoc SnapshotsLoc) CleanUp(nowTimestamp Timestamp, timestamps []Ti
 func (snapshotsLoc SnapshotsLoc) ReceiveSnapshot(in io.Reader, timestamp Timestamp) (retRunner CmdRunner) {
 	retRunner = NewCmdRunner()
 	go func() {
-		if *debugFlag {
+		if verbosity > 2 {
 			log.Println("ReceiveSnapshot")
 		}
 		targetPath := path.Join(snapshotsLoc.Directory, "timestamp")
 		err := os.MkdirAll(targetPath, dirMode)
-		if *debugFlag {
+		if verbosity > 2 {
 			log.Println("ReceiveSnapshot: MkdirAll")
 		}
 		if err != nil {
@@ -124,17 +124,17 @@ func (snapshotsLoc SnapshotsLoc) ReceiveSnapshot(in io.Reader, timestamp Timesta
 			return
 		}
 		receiveCmd := exec.Command(btrfsBin, "receive", targetPath)
-		if *verboseFlag {
+		if verbosity > 1 {
 			printCommand(receiveCmd)
 		}
 		receiveCmd.Stdin = in
-		if *verboseFlag {
+		if verbosity > 1 {
 			receiveCmd.Stdout = os.Stderr
 			receiveCmd.Stderr = os.Stderr
 		}
 		runner := RunCommand(receiveCmd)
 		err = <-runner.Started
-		if *debugFlag {
+		if verbosity > 2 {
 			log.Println("ReceiveSnapshot: Cmd Started")
 		}
 		if err != nil {
@@ -143,15 +143,15 @@ func (snapshotsLoc SnapshotsLoc) ReceiveSnapshot(in io.Reader, timestamp Timesta
 			return
 		}
 		retRunner.Started <- nil
-		if *debugFlag {
+		if verbosity > 2 {
 			log.Println("ReceiveSnapshot: Cmd Sent Started")
 		}
 		err = <-runner.Done
-		if *debugFlag {
+		if verbosity > 2 {
 			log.Println("ReceiveSnapshot: Cmd Wait")
 		}
 		if err != nil {
-			if *debugFlag {
+			if verbosity > 2 {
 				log.Printf("ReceiveSnapshot: Error '%s'", err.Error())
 			}
 			snapshot := Snapshot{snapshotsLoc, timestamp}
@@ -167,15 +167,15 @@ func (snapshotsLoc SnapshotsLoc) ReceiveSnapshot(in io.Reader, timestamp Timesta
 func (snapshotsLoc SnapshotsLoc) ReceiveAndCleanUp(in io.Reader, timestamp Timestamp) (retRunner CmdRunner) {
 	retRunner = NewCmdRunner()
 	go func() {
-		if *debugFlag {
+		if verbosity > 2 {
 			log.Println("ReceiveAndCleanup")
 		}
 		runner := snapshotsLoc.ReceiveSnapshot(in, timestamp)
-		if *debugFlag {
+		if verbosity > 2 {
 			log.Println("ReceiveAndCleanup: ReceiveSnapshot")
 		}
 		err := <-runner.Started
-		if *debugFlag {
+		if verbosity > 2 {
 			log.Println("ReceiveAndCleanup: Receive Started")
 		}
 		if err != nil {
@@ -183,22 +183,22 @@ func (snapshotsLoc SnapshotsLoc) ReceiveAndCleanUp(in io.Reader, timestamp Times
 			retRunner.Done <- err
 			return
 		}
-		if *debugFlag {
+		if verbosity > 2 {
 			log.Println("ReceiveAndCleanup: Started")
 		}
 		retRunner.Started <- nil
-		if *debugFlag {
+		if verbosity > 2 {
 			log.Println("ReceiveAndCleanup: Sent Started")
 		}
 		err = <-runner.Done
-		if *debugFlag {
+		if verbosity > 2 {
 			log.Println("ReceiveAndCleanup: Receive Done")
 		}
 		if err != nil {
 			retRunner.Done <- err
 			return
 		}
-		if *debugFlag {
+		if verbosity > 2 {
 			log.Println("ReceiveAndCleanup: ReadTimestampsDir")
 		}
 		timestamps, err := snapshotsLoc.ReadTimestampsDir()
@@ -206,7 +206,7 @@ func (snapshotsLoc SnapshotsLoc) ReceiveAndCleanUp(in io.Reader, timestamp Times
 			retRunner.Done <- err
 			return
 		}
-		if *debugFlag {
+		if verbosity > 2 {
 			log.Println("ReceiveAndCleanup: CleanUp")
 		}
 		_, err = snapshotsLoc.CleanUp(timestamp, timestamps)

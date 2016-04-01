@@ -33,6 +33,8 @@ var dailyFlag = flag.Int("daily", 0, "Daily Limit")
 var weeklyFlag = flag.Int("weekly", 0, "Weekly Limit")
 var monthlyFlag = flag.Int("monthly", 0, "Monthly Limit")
 
+var verbosity = 1
+
 func printCommand(cmd *exec.Cmd) {
 	log.Printf("Running '%s %s'\n", cmd.Path, strings.Join(cmd.Args[1:], " "))
 }
@@ -119,12 +121,12 @@ func runRemote() {
 		log.Println(err.Error())
 		os.Exit(1)
 	}
-	if *debugFlag {
+	if verbosity > 2 {
 		log.Println("runRemote: ReceiveAndCleanUp")
 	}
 	runner := snapshotsLoc.ReceiveAndCleanUp(os.Stdin, timestamp)
 	err = <-runner.Started
-	if *debugFlag {
+	if verbosity > 2 {
 		log.Println("runRemote: ReceiveAndCleanUp Started")
 	}
 	if err != nil {
@@ -132,7 +134,7 @@ func runRemote() {
 		os.Exit(1)
 	}
 	err = <-runner.Done
-	if *debugFlag {
+	if verbosity > 2 {
 		log.Println("runRemote: ReceiveAndCleanUp Done")
 	}
 	if err != nil {
@@ -160,7 +162,7 @@ func runLocal() {
 	subvolumes := parseConfig(config)
 	isErr := false
 	for _, subvolume := range subvolumes {
-		if !(*quietFlag) {
+		if verbosity > 0 {
 			subvolume.Print()
 		}
 		err = subvolume.RunSnapshot()
@@ -190,10 +192,11 @@ func main() {
 	flag.Parse()
 
 	if *debugFlag {
-		*verboseFlag = true
-		*quietFlag = false
+		verbosity = 3
 	} else if *verboseFlag {
-		*quietFlag = false
+		verbosity = 2
+	} else if *quietFlag {
+		verbosity = 0
 	}
 
 	if *receiveCheckFlag != "" {

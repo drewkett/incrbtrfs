@@ -18,7 +18,7 @@ func (s Snapshot) Path() string {
 // DeleteSnapshot tries to delete a btrfs snaphot. Returns an error if it fail
 func (s Snapshot) DeleteSnapshot() (err error) {
 	btrfsCmd := exec.Command(btrfsBin, "subvolume", "delete", s.Path())
-	if *verboseFlag {
+	if verbosity > 1 {
 		printCommand(btrfsCmd)
 		btrfsCmd.Stdout = os.Stderr
 		btrfsCmd.Stderr = os.Stderr
