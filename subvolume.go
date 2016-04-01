@@ -14,7 +14,7 @@ type Subvolume struct {
 }
 
 func (subvolume Subvolume) Print() {
-	if verbosity > 1 {
+	if verbosity > 0 {
 		log.Printf("Subvolume='%s'", subvolume.Directory)
 		log.Printf("Snapshot Dir='%s' (%s)\n", subvolume.SnapshotsLoc.Directory, subvolume.SnapshotsLoc.Limits.String())
 	}
@@ -26,7 +26,7 @@ func (subvolume Subvolume) Print() {
 				dst = strings.Join([]string{remote.User, dst}, "@")
 			}
 		}
-		if verbosity > 1 {
+		if verbosity > 0 {
 			log.Printf("Remote Dir='%s' (%s)\n", dst, remote.SnapshotsLoc.Limits.String())
 		}
 	}
