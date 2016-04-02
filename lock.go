@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"path"
 	"syscall"
 )
 
@@ -17,10 +16,9 @@ func NewDirLock(dir string) (lock DirLock, err error) {
 	if err != nil {
 		return
 	}
-	lockPath := path.Join(dir, ".incrbtrfs.lock")
-	file, err := os.Create(lockPath)
+	file, err := os.Open(dir)
 	if err != nil {
-		err = fmt.Errorf("Failed to create lock file for '%s'", dir)
+		err = fmt.Errorf("Failed to open directory '%s' for locking", dir)
 		return
 	}
 	err = syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
@@ -39,7 +37,7 @@ func (lock DirLock) Unlock() (err error) {
 	}
 	err = lock.file.Close()
 	if err != nil {
-		err = fmt.Errorf("Failed to close lock file for '%s'", lock.path)
+		err = fmt.Errorf("Failed to close directory '%s' after unlock", lock.path)
 	}
 	return
 }
