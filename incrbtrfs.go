@@ -56,6 +56,7 @@ func runRemoteCheck() {
 		log.Println(err.Error())
 		os.Exit(1)
 	}
+	defer lock.Unlock()
 	timestampsDir := path.Join(recvDir, "timestamp")
 	err = os.MkdirAll(timestampsDir, dirMode)
 	if err != nil {
@@ -90,11 +91,6 @@ func runRemoteCheck() {
 		log.Println(err.Error())
 		os.Exit(1)
 	}
-	err = lock.Unlock()
-	if err != nil {
-		log.Println(err.Error())
-		os.Exit(1)
-	}
 }
 
 func runRemote() {
@@ -115,6 +111,7 @@ func runRemote() {
 		log.Println(err.Error())
 		return
 	}
+	defer lock.Unlock()
 	timestamp := Timestamp(*timestampFlag)
 	_, err = parseTimestamp(timestamp)
 	if err != nil {
@@ -137,11 +134,6 @@ func runRemote() {
 	if verbosity > 2 {
 		log.Println("runRemote: ReceiveAndCleanUp Done")
 	}
-	if err != nil {
-		log.Println(err.Error())
-		os.Exit(1)
-	}
-	err = lock.Unlock()
 	if err != nil {
 		log.Println(err.Error())
 		os.Exit(1)
