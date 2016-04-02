@@ -43,6 +43,7 @@ func (subvolume Subvolume) RunSnapshot() (err error) {
 	if err != nil {
 		return
 	}
+	defer lock.Unlock()
 	timestamp := getCurrentTimestamp()
 	snapshot := Snapshot{subvolume.SnapshotsLoc, timestamp}
 	err = os.MkdirAll(path.Dir(snapshot.Path()), dirMode)
@@ -116,10 +117,6 @@ func (subvolume Subvolume) RunSnapshot() (err error) {
 		}
 	}
 	_, err = subvolume.SnapshotsLoc.CleanUp(timestamp, timestamps)
-	if err != nil {
-		return
-	}
-	err = lock.Unlock()
 	if err != nil {
 		return
 	}
