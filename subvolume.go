@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path"
 	"strings"
 )
 
@@ -44,6 +45,10 @@ func (subvolume Subvolume) RunSnapshot() (err error) {
 	}
 	timestamp := getCurrentTimestamp()
 	snapshot := Snapshot{subvolume.SnapshotsLoc, timestamp}
+	err = os.MkdirAll(path.Dir(snapshot.Path()), dirMode)
+	if err != nil {
+		return
+	}
 	btrfsCmd := exec.Command(btrfsBin, "subvolume", "snapshot", "-r", subvolume.Directory, snapshot.Path())
 	if verbosity > 1 {
 		printCommand(btrfsCmd)
