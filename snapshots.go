@@ -217,7 +217,10 @@ func (snapshotsLoc SnapshotsLoc) ReceiveAndCleanUp(in io.Reader, timestamp Times
 
 func (snapshotsLoc SnapshotsLoc) ReadTimestampsDir() (timestamps []Timestamp, err error) {
 	timestampsDir := path.Join(snapshotsLoc.Directory, "timestamp")
-	os.MkdirAll(timestampsDir, dirMode)
+	err = os.MkdirAll(timestampsDir, dirMode)
+	if err != nil {
+		return
+	}
 	fileInfos, err := ioutil.ReadDir(timestampsDir)
 	if err != nil {
 		return
