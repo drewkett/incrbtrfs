@@ -74,46 +74,12 @@ func (subvolume Subvolume) RunSnapshot() (err error) {
 		return
 	}
 	for _, remote := range subvolume.Remotes {
-		var remoteTimestamps []Timestamp
-		var lock DirLock
-		if remote.Host == "" {
-			lock, err = NewDirLock(remote.SnapshotsLoc.Directory)
-			if err != nil {
-				log.Println(err.Error())
-				err = nil
-				continue
-			}
-			remoteTimestamps, err = remote.SnapshotsLoc.ReadTimestampsDir()
-			if err != nil {
-				log.Println(err.Error())
-				err = nil
-				continue
-			}
-		} else {
-			remoteTimestamps, err = remote.GetTimestamps()
-			if err != nil {
-				log.Println(err.Error())
-				err = nil
-				continue
-			}
-		}
-		parentTimestamp := calcParent(timestamps, remoteTimestamps)
-		if verbosity > 0 && parentTimestamp != "" {
-			log.Printf("Parent = %s\n", string(parentTimestamp))
-		}
-		err = remote.SendSnapshot(snapshot, parentTimestamp)
+		err = remote.sendSnapshotUsingParent(snapshot, timestamps)
 		if err != nil {
 			log.Println("Error sending snapshot")
 			log.Println(err.Error())
 			err = nil
 			continue
-		}
-		if remote.Host == "" {
-			err = lock.Unlock()
-			if err != nil {
-				log.Println(err.Error())
-				err = nil
-			}
 		}
 	}
 	_, err = subvolume.SnapshotsLoc.CleanUp(timestamp, timestamps)

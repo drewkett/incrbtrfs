@@ -194,3 +194,30 @@ func (remote RemoteSnapshotsLoc) SendSnapshot(snapshot Snapshot, parent Timestam
 		return
 	}
 }
+
+func (remote RemoteSnapshotsLoc) sendSnapshotUsingParent(localSnapshot Snapshot, localTimestamps []Timestamp) (err error) {
+	var remoteTimestamps []Timestamp
+	var lock DirLock
+	if remote.Host == "" {
+		lock, err = NewDirLock(remote.SnapshotsLoc.Directory)
+		if err != nil {
+			return
+		}
+		defer lock.Unlock()
+		remoteTimestamps, err = remote.SnapshotsLoc.ReadTimestampsDir()
+		if err != nil {
+			return
+		}
+	} else {
+		remoteTimestamps, err = remote.GetTimestamps()
+		if err != nil {
+			return
+		}
+	}
+	parentTimestamp := calcParent(localTimestamps, remoteTimestamps)
+	if verbosity > 0 && parentTimestamp != "" {
+		log.Printf("Parent = %s\n", string(parentTimestamp))
+	}
+	err = remote.SendSnapshot(localSnapshot, parentTimestamp)
+	return
+}
