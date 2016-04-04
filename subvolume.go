@@ -58,7 +58,9 @@ func (subvolume Subvolume) RunSnapshot() (err error) {
 	}
 	err = btrfsCmd.Run()
 	if err != nil {
-		log.Println("Snapshot failed")
+		if verbosity > 0 {
+			log.Println("Snapshot failed")
+		}
 		if _, errTmp := os.Stat(snapshot.Path()); !os.IsNotExist(errTmp) {
 			errTmp = snapshot.DeleteSnapshot()
 			if errTmp != nil {
