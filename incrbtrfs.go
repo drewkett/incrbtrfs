@@ -16,7 +16,7 @@ import (
 //TODO check signal handling
 //TODO create file signifying successful snapshots
 
-const btrfsBin string = "/sbin/btrfs"
+const btrfsBin string = "btrfs"
 const subDir string = ".incrbtrfs"
 const timeFormat string = "20060102_150405"
 const version int = 3
