@@ -33,6 +33,7 @@ var dailyFlag = flag.Int("daily", 0, "Daily Limit")
 var weeklyFlag = flag.Int("weekly", 0, "Weekly Limit")
 var monthlyFlag = flag.Int("monthly", 0, "Monthly Limit")
 var pinnedFlag = flag.Bool("pin", false, "Keep snapshots indefinitely")
+var archiveFlag = flag.Bool("archive", false, "Create tarball archives of snapshot (implies pinnedFlag)")
 
 var verbosity = 1
 
@@ -190,6 +191,10 @@ func main() {
 		verbosity = 2
 	} else if *quietFlag {
 		verbosity = 0
+	}
+
+	if *archiveFlag {
+		*pinnedFlag = true
 	}
 
 	if *receiveCheckFlag != "" {

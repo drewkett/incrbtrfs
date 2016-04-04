@@ -87,6 +87,24 @@ func (subvolume Subvolume) RunSnapshot() (err error) {
 			return
 		}
 	}
+	if *archiveFlag {
+		archiveDir := path.Join(subvolume.SnapshotsLoc.Directory, "archive")
+		err = os.MkdirAll(archiveDir, dirMode)
+		if err != nil {
+			return
+		}
+		archive := path.Join(archiveDir, string(timestamp)+".snap")
+		btrfsCmd = exec.Command(btrfsBin, "send", "-f", archive, snapshot.Path())
+		if verbosity > 1 {
+			printCommand(btrfsCmd)
+			btrfsCmd.Stdout = os.Stderr
+			btrfsCmd.Stderr = os.Stderr
+		}
+		err = btrfsCmd.Run()
+		if err != nil {
+			return
+		}
+	}
 
 	timestamps, err := subvolume.SnapshotsLoc.ReadTimestampsDir()
 	if err != nil {
