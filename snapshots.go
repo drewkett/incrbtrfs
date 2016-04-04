@@ -74,6 +74,45 @@ func (snapshotsLoc SnapshotsLoc) clean(interval Interval, now time.Time, timesta
 	return
 }
 
+func (snapshotsLoc SnapshotsLoc) markPinned() (keptTimestampsMap TimestampMap, err error) {
+	dir := path.Join(snapshotsLoc.Directory, "pinned")
+	err = os.MkdirAll(dir, dirMode)
+	if err != nil {
+		return
+	}
+	fileInfos, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	keptTimestampsMap = make(TimestampMap)
+	for _, fileInfo := range fileInfos {
+		if fileInfo.Mode()&os.ModeSymlink != 0 {
+			fullPath := path.Join(dir, fileInfo.Name())
+			// Check to see if symlink exists
+			_, err = os.Stat(fullPath)
+			if err != nil {
+				log.Println(err.Error())
+				err = nil
+				continue
+			}
+			// Right now it just follows the symlink and assumes the filename is a
+			// valid timestamp. It probably should make some effort to determine if
+			// the symlink goes to the timestamps directory
+			fileName, err := os.Readlink(fullPath)
+			if err != nil {
+				if verbosity > 0 {
+					log.Println(err.Error())
+					err = nil
+					continue
+				}
+			}
+			timestamp := Timestamp(path.Base(fileName))
+			keptTimestampsMap[timestamp] = true
+		}
+	}
+	return
+}
+
 func (snapshotsLoc SnapshotsLoc) CleanUp(nowTimestamp Timestamp, timestamps []Timestamp) (keptTimestamps []Timestamp, err error) {
 	if verbosity > 2 {
 		log.Println("Running Clean Up")
@@ -92,6 +131,11 @@ func (snapshotsLoc SnapshotsLoc) CleanUp(nowTimestamp Timestamp, timestamps []Ti
 		}
 		keptTimestampsMap = keptTimestampsMap.Merge(tempMap)
 	}
+	pinnedTimestampsMap, err := snapshotsLoc.markPinned()
+	if err != nil {
+		return
+	}
+	keptTimestampsMap = keptTimestampsMap.Merge(pinnedTimestampsMap)
 	// Remove unneeded timestamps
 	for _, timestamp := range timestamps {
 		if _, ok := keptTimestampsMap[timestamp]; ok {

@@ -32,6 +32,7 @@ var hourlyFlag = flag.Int("hourly", 0, "Hourly Limit")
 var dailyFlag = flag.Int("daily", 0, "Daily Limit")
 var weeklyFlag = flag.Int("weekly", 0, "Weekly Limit")
 var monthlyFlag = flag.Int("monthly", 0, "Monthly Limit")
+var pinnedFlag = flag.Bool("pin", false, "Keep snapshots indefinitely")
 
 var verbosity = 1
 
