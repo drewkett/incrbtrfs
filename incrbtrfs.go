@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"github.com/golang/snappy"
 	"io/ioutil"
 	"log"
 	"os"
@@ -30,6 +31,7 @@ var debugFlag = flag.Bool("debug", false, "Debug Mode")
 var destinationFlag = flag.String("destination", "", "Destination directory for -receive")
 var checkFlag = flag.Bool("check", false, "Activate Check Mode for -receive")
 var receiveFlag = flag.Bool("receive", false, "Receive Mode")
+var loadFileFlag = flag.String("loadFile", "", "Load Snapshot File")
 var timestampFlag = flag.String("timestamp", "", "Timestamp for Receive Mode")
 var hourlyFlag = flag.Int("hourly", 0, "Hourly Limit")
 var dailyFlag = flag.Int("daily", 0, "Daily Limit")
@@ -48,6 +50,73 @@ func printCommand(cmd *exec.Cmd) {
 func getCurrentTimestamp() Timestamp {
 	currentTime := time.Now()
 	return Timestamp(currentTime.Format(timeFormat))
+}
+
+func runLoadFile() {
+	if *destinationFlag == "" {
+		log.Println("Must specify destination in loadFile mode")
+		os.Exit(1)
+	}
+	var snapshotsLoc SnapshotsLoc
+	snapshotsLoc.Directory = *destinationFlag
+	snapshotsLoc.Limits = Limits{
+		Hourly:  *hourlyFlag,
+		Daily:   *dailyFlag,
+		Weekly:  *weeklyFlag,
+		Monthly: *monthlyFlag}
+
+	lock, err := NewDirLock(snapshotsLoc.Directory)
+	if err != nil {
+		log.Println(err.Error())
+		os.Exit(1)
+	}
+	defer lock.Unlock()
+	fileName := *loadFileFlag
+	baseName := path.Base(fileName)
+	var timestampStr string
+	var compressed bool
+	if strings.HasSuffix(baseName, ".snap.snpy") {
+		timestampStr = strings.TrimSuffix(baseName, ".snap.snpy")
+		compressed = true
+	} else if strings.HasSuffix(baseName, ".snap") {
+		timestampStr = strings.TrimSuffix(baseName, ".snap")
+		compressed = false
+	} else {
+		log.Printf("Unrecognized file type for %s", baseName)
+		os.Exit(1)
+	}
+	f, err := os.Open(fileName)
+	if err != nil {
+		log.Println(err.Error())
+		os.Exit(1)
+	}
+	defer f.Close()
+
+	timestamp := Timestamp(timestampStr)
+	var runner CmdRunner
+	if compressed {
+		cf := snappy.NewReader(f)
+		runner = snapshotsLoc.ReceiveSnapshot(cf, timestamp)
+	} else {
+		runner = snapshotsLoc.ReceiveSnapshot(f, timestamp)
+	}
+	err = <-runner.Started
+	if err != nil {
+		log.Println(err.Error())
+		os.Exit(1)
+	}
+	err = <-runner.Done
+	if err != nil {
+		log.Println(err.Error())
+		os.Exit(1)
+	}
+	if *pinnedFlag {
+		err = snapshotsLoc.PinTimestamp(timestamp)
+		if err != nil {
+			log.Println(err.Error())
+			os.Exit(1)
+		}
+	}
 }
 
 type RemoteCheck struct {
@@ -215,7 +284,9 @@ func main() {
 		*pinnedFlag = true
 	}
 
-	if *receiveFlag && *checkFlag {
+	if *loadFileFlag != "" {
+		runLoadFile()
+	} else if *receiveFlag && *checkFlag {
 		setRemoteLogging()
 		runRemoteCheck()
 	} else if *receiveFlag {
