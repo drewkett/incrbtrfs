@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/golang/snappy"
 	"io"
 	"log"
 	"os"
@@ -86,6 +87,9 @@ func (remote RemoteSnapshotsLoc) RemoteReceive(in io.Reader, timestamp Timestamp
 		} else if verbosity == 0 {
 			receiveArgs = append(receiveArgs, "-quiet")
 		}
+		if *compressFlag {
+			receiveArgs = append(receiveArgs, "-compress")
+		}
 		if remote.SnapshotsLoc.Limits.Hourly > 0 {
 			receiveArgs = append(receiveArgs, "-hourly", strconv.Itoa(remote.SnapshotsLoc.Limits.Hourly))
 		}
@@ -151,18 +155,22 @@ func (remote RemoteSnapshotsLoc) SendSnapshot(snapshot Snapshot, parent Timestam
 	if verbosity > 1 {
 		sendCmd.Stderr = os.Stderr
 	}
-	sendOut, err := sendCmd.StdoutPipe()
-	if err != nil {
-		return
-	}
-	sendRunner := RunCommand(sendCmd)
-
+	sendRd, sendWr := io.Pipe()
 	var recvRunner CmdRunner
 	if remote.Host == "" {
-		recvRunner = remote.SnapshotsLoc.ReceiveAndCleanUp(sendOut, snapshot.timestamp)
+		sendCmd.Stdout = sendWr
+		recvRunner = remote.SnapshotsLoc.ReceiveAndCleanUp(sendRd, snapshot.timestamp)
 	} else {
-		recvRunner = remote.RemoteReceive(sendOut, snapshot.timestamp)
+		if *compressFlag {
+			compOut := snappy.NewBufferedWriter(sendWr)
+			sendCmd.Stdout = compOut
+			recvRunner = remote.RemoteReceive(sendRd, snapshot.timestamp)
+		} else {
+			sendCmd.Stdout = sendWr
+			recvRunner = remote.RemoteReceive(sendRd, snapshot.timestamp)
+		}
 	}
+	sendRunner := RunCommand(sendCmd)
 
 	err = <-recvRunner.Started
 	if err != nil {

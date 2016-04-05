@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"github.com/golang/snappy"
 	"log"
 	"os"
 	"os/exec"
@@ -80,16 +82,40 @@ func (subvolume Subvolume) RunSnapshot() (err error) {
 		if err != nil {
 			return
 		}
-		archive := path.Join(archiveDir, string(timestamp)+".snap")
-		btrfsCmd = exec.Command(btrfsBin, "send", "-f", archive, snapshot.Path())
+
+		btrfsCmd = exec.Command(btrfsBin, "send", snapshot.Path())
+
+		extension := ""
+		if *compressFlag {
+			extension = ".snpy"
+		}
+		archiveFile := path.Join(archiveDir, string(timestamp)+".snap"+extension)
+		f, err := os.Create(archiveFile)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		if *compressFlag {
+			bf := snappy.NewBufferedWriter(f)
+			defer bf.Close()
+			btrfsCmd.Stdout = bf
+		} else {
+			bf := bufio.NewWriter(f)
+			defer bf.Flush()
+			btrfsCmd.Stdout = bf
+		}
+
 		if verbosity > 1 {
 			printCommand(btrfsCmd)
-			btrfsCmd.Stdout = os.Stderr
 			btrfsCmd.Stderr = os.Stderr
 		}
 		err = btrfsCmd.Run()
 		if err != nil {
-			return
+			// Not sure what to do if error
+			_ = f.Close()
+			os.Remove(archiveFile)
+			return err
 		}
 	}
 
