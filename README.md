@@ -32,7 +32,8 @@ hourly = 0
 ```
 
 - `[[snapshot]]` indicates a new snapshot specification
-- `directory` specifies the subvolume to take a snapshot of. Snapshots are stored in `$directory/.incrbtrfs`
+- `directory` specifies the subvolume to take a snapshot of
+- `destination` specifies the directory that the snapshots are stored in. `$directory/.incrbtrfs` is the default
 - `[[snapshot.remote]]` specifies that the snapshot should be sent somewhere. `directory` specifies the location of the backup. Remote snapshot locations do not append the .incrbtrfs folder.
   - `host`/`user` can be used to specify another machine to send the backups to. Communication is done with SSH. A copy of the incrbtrfs binary is required on the remote machine in order for this to work
   - `exec` can be used to specify the location of the `incrbtrfs` binary on the remote machine
