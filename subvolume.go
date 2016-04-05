@@ -86,7 +86,7 @@ func (subvolume Subvolume) RunSnapshot() (err error) {
 		btrfsCmd = exec.Command(btrfsBin, "send", snapshot.Path())
 
 		extension := ""
-		if *compressFlag {
+		if !*noCompressionFlag {
 			extension = ".snpy"
 		}
 		archiveFile := path.Join(archiveDir, string(timestamp)+".snap"+extension)
@@ -96,13 +96,13 @@ func (subvolume Subvolume) RunSnapshot() (err error) {
 		}
 		defer f.Close()
 
-		if *compressFlag {
-			bf := snappy.NewBufferedWriter(f)
-			defer bf.Close()
-			btrfsCmd.Stdout = bf
-		} else {
+		if *noCompressionFlag {
 			bf := bufio.NewWriter(f)
 			defer bf.Flush()
+			btrfsCmd.Stdout = bf
+		} else {
+			bf := snappy.NewBufferedWriter(f)
+			defer bf.Close()
 			btrfsCmd.Stdout = bf
 		}
 

@@ -39,7 +39,7 @@ var weeklyFlag = flag.Int("weekly", 0, "Weekly Limit")
 var monthlyFlag = flag.Int("monthly", 0, "Monthly Limit")
 var pinnedFlag = flag.Bool("pin", false, "Keep snapshots indefinitely")
 var archiveFlag = flag.Bool("archive", false, "Create archive file of snapshots (implies -pin)")
-var compressFlag = flag.Bool("compress", false, "Use compression for btrfs send/receive")
+var noCompressionFlag = flag.Bool("noCompression", true, "Disable compression for btrfs send/receive and -archive")
 
 var verbosity = 1
 
@@ -205,11 +205,11 @@ func runRemote() {
 		log.Println("runRemote: ReceiveAndCleanUp")
 	}
 	var runner CmdRunner
-	if *compressFlag {
+	if *noCompressionFlag {
+		runner = snapshotsLoc.ReceiveAndCleanUp(os.Stdin, timestamp)
+	} else {
 		rd := snappy.NewReader(os.Stdin)
 		runner = snapshotsLoc.ReceiveAndCleanUp(rd, timestamp)
-	} else {
-		runner = snapshotsLoc.ReceiveAndCleanUp(os.Stdin, timestamp)
 	}
 	err = <-runner.Started
 	if verbosity > 2 {

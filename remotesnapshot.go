@@ -87,8 +87,8 @@ func (remote RemoteSnapshotsLoc) RemoteReceive(in io.Reader, timestamp Timestamp
 		} else if verbosity == 0 {
 			receiveArgs = append(receiveArgs, "-quiet")
 		}
-		if *compressFlag {
-			receiveArgs = append(receiveArgs, "-compress")
+		if *noCompressionFlag {
+			receiveArgs = append(receiveArgs, "-noCompression")
 		}
 		if remote.SnapshotsLoc.Limits.Hourly > 0 {
 			receiveArgs = append(receiveArgs, "-hourly", strconv.Itoa(remote.SnapshotsLoc.Limits.Hourly))
@@ -161,12 +161,12 @@ func (remote RemoteSnapshotsLoc) SendSnapshot(snapshot Snapshot, parent Timestam
 		sendCmd.Stdout = sendWr
 		recvRunner = remote.SnapshotsLoc.ReceiveAndCleanUp(sendRd, snapshot.timestamp)
 	} else {
-		if *compressFlag {
-			compOut := snappy.NewBufferedWriter(sendWr)
-			sendCmd.Stdout = compOut
+		if *noCompressionFlag {
+			sendCmd.Stdout = sendWr
 			recvRunner = remote.RemoteReceive(sendRd, snapshot.timestamp)
 		} else {
-			sendCmd.Stdout = sendWr
+			compOut := snappy.NewBufferedWriter(sendWr)
+			sendCmd.Stdout = compOut
 			recvRunner = remote.RemoteReceive(sendRd, snapshot.timestamp)
 		}
 	}
