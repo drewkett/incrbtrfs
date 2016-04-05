@@ -72,20 +72,7 @@ func (subvolume Subvolume) RunSnapshot() (err error) {
 		return
 	}
 	if *pinnedFlag {
-		pinDir := path.Join(subvolume.SnapshotsLoc.Directory, "pinned")
-		err = os.MkdirAll(pinDir, dirMode)
-		if err != nil {
-			return
-		}
-		src := path.Join("..", "timestamp", string(timestamp))
-		dst := path.Join(pinDir, string(timestamp))
-		if verbosity > 1 {
-			log.Printf("Symlink '%s' => '%s'\n", dst, src)
-		}
-		err = os.Symlink(src, dst)
-		if err != nil {
-			return
-		}
+		subvolume.SnapshotsLoc.PinTimestamp(timestamp)
 	}
 	if *archiveFlag {
 		archiveDir := path.Join(subvolume.SnapshotsLoc.Directory, "archive")

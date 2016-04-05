@@ -282,3 +282,18 @@ func (snapshotsLoc SnapshotsLoc) ReadTimestampsDir() (timestamps []Timestamp, er
 	err = nil
 	return
 }
+
+func (snapshotsLoc SnapshotsLoc) PinTimestamp(timestamp Timestamp) (err error) {
+	pinDir := path.Join(snapshotsLoc.Directory, "pinned")
+	err = os.MkdirAll(pinDir, dirMode)
+	if err != nil {
+		return
+	}
+	src := path.Join("..", "timestamp", string(timestamp))
+	dst := path.Join(pinDir, string(timestamp))
+	if verbosity > 1 {
+		log.Printf("Symlink '%s' => '%s'\n", dst, src)
+	}
+	err = os.Symlink(src, dst)
+	return
+}
