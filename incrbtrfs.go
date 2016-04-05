@@ -25,8 +25,9 @@ const dirMode os.FileMode = 0700 | os.ModeDir
 var quietFlag = flag.Bool("quiet", false, "Quiet Mode")
 var verboseFlag = flag.Bool("verbose", false, "Verbose Mode")
 var debugFlag = flag.Bool("debug", false, "Debug Mode")
-var receiveCheckFlag = flag.String("receiveCheck", "", "Receive Mode (Check)")
-var receiveFlag = flag.String("receive", "", "Receive Mode")
+var destinationFlag = flag.String("destination", "", "Destination directory for -receive")
+var checkFlag = flag.Bool("check", false, "Activate Check Mode for -receive")
+var receiveFlag = flag.Bool("receive", false, "Receive Mode")
 var timestampFlag = flag.String("timestamp", "", "Timestamp for Receive Mode")
 var hourlyFlag = flag.Int("hourly", 0, "Hourly Limit")
 var dailyFlag = flag.Int("daily", 0, "Daily Limit")
@@ -52,7 +53,11 @@ type RemoteCheck struct {
 }
 
 func runRemoteCheck() {
-	recvDir := *receiveCheckFlag
+	if *destinationFlag == "" {
+		log.Println("Must specify destination in receive-check mode")
+		os.Exit(1)
+	}
+	recvDir := *destinationFlag
 	lock, err := NewDirLock(recvDir)
 	if err != nil {
 		log.Println(err.Error())
@@ -96,12 +101,16 @@ func runRemoteCheck() {
 }
 
 func runRemote() {
+	if *destinationFlag == "" {
+		log.Println("Must specify destination in receive mode")
+		os.Exit(1)
+	}
 	if *timestampFlag == "" {
 		log.Println("Must specify timestamp in receive mode")
 		os.Exit(1)
 	}
 	var snapshotsLoc SnapshotsLoc
-	snapshotsLoc.Directory = *receiveFlag
+	snapshotsLoc.Directory = *destinationFlag
 	snapshotsLoc.Limits = Limits{
 		Hourly:  *hourlyFlag,
 		Daily:   *dailyFlag,
@@ -197,10 +206,10 @@ func main() {
 		*pinnedFlag = true
 	}
 
-	if *receiveCheckFlag != "" {
+	if *receiveFlag && *checkFlag {
 		setRemoteLogging()
 		runRemoteCheck()
-	} else if *receiveFlag != "" {
+	} else if *receiveFlag {
 		setRemoteLogging()
 		runRemote()
 	} else {
