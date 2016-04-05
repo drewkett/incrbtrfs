@@ -39,7 +39,7 @@ var weeklyFlag = flag.Int("weekly", 0, "Weekly Limit")
 var monthlyFlag = flag.Int("monthly", 0, "Monthly Limit")
 var pinnedFlag = flag.Bool("pin", false, "Keep snapshots indefinitely")
 var archiveFlag = flag.Bool("archive", false, "Create archive file of snapshots (implies -pin)")
-var noCompressionFlag = flag.Bool("noCompression", true, "Disable compression for btrfs send/receive and -archive")
+var noCompressionFlag = flag.Bool("noCompression", false, "Disable compression for btrfs send/receive and -archive")
 
 var verbosity = 1
 
