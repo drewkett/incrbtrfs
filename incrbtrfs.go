@@ -15,6 +15,8 @@ import (
 //TODO add comments
 //TODO check signal handling
 //TODO create file signifying successful snapshots
+//TODO make .incrbtrfs directory a subvolume. Prevents future snapshots from
+//including directory by default.
 
 const btrfsBin string = "btrfs"
 const subDir string = ".incrbtrfs"
