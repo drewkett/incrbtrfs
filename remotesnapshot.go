@@ -188,13 +188,12 @@ func (remote RemoteSnapshotsLoc) SendSnapshot(snapshot Snapshot, parent Timestam
 		log.Println("Error starting btrfs send")
 		return
 	}
-	// Tells sendWr to close once btrfs send ends
-	sendWr.Close()
 	select {
 	case err = <-sendRunner.Done:
 		if err != nil {
 			log.Println("Error running btrfs send")
 		}
+		sendWr.Close()
 		<-recvRunner.Done
 		return
 	case err = <-recvRunner.Done:
