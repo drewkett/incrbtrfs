@@ -18,6 +18,9 @@ import (
 //TODO create file signifying successful snapshots
 //TODO make .incrbtrfs directory a subvolume. Prevents future snapshots from
 //including directory by default.
+//TODO Require shared lock to delete subvolume. Use shared locks when running send operation.
+//allows incrbtrfs to be run again while long running operation is running
+//TODO delete archive file on interrupt
 
 const btrfsBin string = "btrfs"
 const subDir string = ".incrbtrfs"
