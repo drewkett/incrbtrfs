@@ -158,6 +158,8 @@ func (remote RemoteSnapshotsLoc) SendSnapshot(snapshot Snapshot, parent Timestam
 	sendRd, sendWr := io.Pipe()
 	defer sendRd.Close()
 	var recvRunner CmdRunner
+	var compOut *snappy.Writer
+	closeComp := false
 	if remote.Host == "" {
 		sendCmd.Stdout = sendWr
 		recvRunner = remote.SnapshotsLoc.ReceiveAndCleanUp(sendRd, snapshot.timestamp)
@@ -166,8 +168,8 @@ func (remote RemoteSnapshotsLoc) SendSnapshot(snapshot Snapshot, parent Timestam
 			sendCmd.Stdout = sendWr
 			recvRunner = remote.RemoteReceive(sendRd, snapshot.timestamp)
 		} else {
-			compOut := snappy.NewBufferedWriter(sendWr)
-			defer compOut.Close()
+			compOut = snappy.NewBufferedWriter(sendWr)
+			closeComp = true
 			sendCmd.Stdout = compOut
 			recvRunner = remote.RemoteReceive(sendRd, snapshot.timestamp)
 		}
@@ -192,6 +194,9 @@ func (remote RemoteSnapshotsLoc) SendSnapshot(snapshot Snapshot, parent Timestam
 	case err = <-sendRunner.Done:
 		if err != nil {
 			log.Println("Error running btrfs send")
+		}
+		if closeComp {
+			compOut.Close()
 		}
 		sendWr.Close()
 		<-recvRunner.Done
