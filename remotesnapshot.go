@@ -14,6 +14,7 @@ import (
 
 type RemoteSnapshotsLoc struct {
 	Host         string
+	Port         string
 	User         string
 	Exec         string
 	SnapshotsLoc SnapshotsLoc
@@ -25,7 +26,7 @@ func (remote RemoteSnapshotsLoc) GetTimestamps() (timestamps []Timestamp, err er
 		sshPath = remote.User + "@" + sshPath
 	}
 	var receiveCheckOut []byte
-	receiveCheckCmd := exec.Command("ssh", sshPath, remote.Exec, "-receive", "-check", "-destination", remote.SnapshotsLoc.Directory)
+	receiveCheckCmd := exec.Command("ssh", "-p", remote.Port, sshPath, remote.Exec, "-receive", "-check", "-destination", remote.SnapshotsLoc.Directory)
 	if verbosity > 1 {
 		receiveCheckCmd.Stderr = os.Stderr
 	}
@@ -79,7 +80,7 @@ func (remote RemoteSnapshotsLoc) RemoteReceive(in io.Reader, timestamp Timestamp
 		if remote.User != "" {
 			sshPath = remote.User + "@" + sshPath
 		}
-		receiveArgs := []string{sshPath, remote.Exec, "-receive", "-destination", remote.SnapshotsLoc.Directory, "-timestamp", string(timestamp)}
+		receiveArgs := []string{sshPath, "-p", remote.Port, remote.Exec, "-receive", "-destination", remote.SnapshotsLoc.Directory, "-timestamp", string(timestamp)}
 		if verbosity > 2 {
 			receiveArgs = append(receiveArgs, "-debug")
 		} else if verbosity == 2 {

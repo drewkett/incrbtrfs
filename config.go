@@ -25,6 +25,7 @@ type Config struct {
 		Limits      OptionalLimits
 		Remote      []struct {
 			Host      string
+			Port      string
 			User      string
 			Exec      string
 			Directory string
@@ -58,6 +59,10 @@ func parseConfig(config Config) (subvolumes []Subvolume) {
 			var remoteSnapshotsLoc RemoteSnapshotsLoc
 			remoteSnapshotsLoc.User = remote.User
 			remoteSnapshotsLoc.Host = remote.Host
+			remoteSnapshotsLoc.Port = remote.Port
+			if remoteSnapshotsLoc.Port == "" {
+				remoteSnapshotsLoc.Port = "22"
+			}
 			remoteSnapshotsLoc.Exec = remote.Exec
 			if remoteSnapshotsLoc.Exec == "" {
 				remoteSnapshotsLoc.Exec = "incrbtrfs"
