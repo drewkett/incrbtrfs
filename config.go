@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/BurntSushi/toml"
+	"log"
 	"path"
 )
 
@@ -66,6 +67,9 @@ func parseConfig(config Config) (subvolumes []Subvolume) {
 			remoteSnapshotsLoc.Exec = remote.Exec
 			if remoteSnapshotsLoc.Exec == "" {
 				remoteSnapshotsLoc.Exec = "incrbtrfs"
+			}
+			if remote.Directory == "" {
+				log.Fatalln("No remote directory specified for snapshot '" + subvolume.Directory + "'")
 			}
 			remoteSnapshotsLoc.SnapshotsLoc = SnapshotsLoc{
 				Directory: remote.Directory,
