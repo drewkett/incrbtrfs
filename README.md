@@ -45,7 +45,7 @@ Note: The first time a snapshot is run with a remote specified, all of the data 
 
 The program can be installed with go install
 ```sh
-go install github.com/drewkett/incrbtrfs
+go get github.com/drewkett/incrbtrfs
 ```
 
 The program can be run by passing the config file as an argument
@@ -54,5 +54,5 @@ The program can be run by passing the config file as an argument
 incrbtrfs sample.cfg
 ```
 
-###Limitations
+### Limitations
 - If the btrfs receive command fails with message `ERROR: could not find parent subvolume`, there is currently no way to recover without manually deleting folder on the receive side that is supposedly a parent, but isn't. This is usually from a previously failed send/receive.
